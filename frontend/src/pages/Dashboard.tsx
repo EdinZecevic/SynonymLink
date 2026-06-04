@@ -79,8 +79,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
       // Increment count slightly for visualization
       setSeedCount(prev => prev > 0 ? prev + 1 : 2);
-    } catch (err: any) {
-      setAddError(err.message || 'An error occurred.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred.';
+      setAddError(errorMsg);
     } finally {
       setAddLoading(false);
     }
@@ -104,8 +105,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if (results.length === 0) {
         setSearchError(`No synonyms found for "${searchQuery}".`);
       }
-    } catch (err: any) {
-      setSearchError(err.message || 'Error executing search.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error executing search.';
+      setSearchError(errorMsg);
     } finally {
       setSearchLoading(false);
     }
@@ -121,8 +123,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setSeedSuccessMessage(`Successfully seeded! Loaded ${response.totalWords} unique words and relations.`);
       setHasSeeded(true);
       localStorage.setItem('synonyms_seeded', 'true');
-    } catch (err: any) {
-      setSeedSuccessMessage(`Error seeding: ${err.message}`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setSeedSuccessMessage(`Error seeding: ${errorMsg}`);
     } finally {
       setSeedLoading(false);
     }
@@ -643,6 +646,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
           color: var(--text-muted);
           justify-content: center;
           margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+          .dashboard-container {
+            padding: 12px;
+            gap: 16px;
+          }
+          .results-list-container {
+            max-height: 240px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .dashboard-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 16px;
+          }
+          .header-left {
+            justify-content: space-between;
+            width: 100%;
+          }
+          .header-actions {
+            justify-content: space-between;
+            width: 100%;
+            gap: 8px;
+          }
+          .btn-graph {
+            flex-grow: 1;
+            justify-content: center;
+            font-size: 13px;
+            padding: 10px 14px;
+          }
         }
       `}</style>
     </div>

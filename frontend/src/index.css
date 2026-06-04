@@ -226,3 +226,14 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Mobile responsive global styles */
+@media (max-width: 768px) {
+  .card-glass {
+    padding: 16px;
+  }
+  .btn {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}

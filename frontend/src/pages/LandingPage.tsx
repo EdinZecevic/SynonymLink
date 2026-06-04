@@ -265,6 +265,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, theme, t
           color: var(--text-secondary);
           line-height: 1.5;
         }
+
+        @media (max-width: 768px) {
+          .landing-container {
+            padding: 16px;
+          }
+          .landing-header {
+            margin-bottom: 24px;
+          }
+          .landing-hero {
+            gap: 32px;
+          }
+          .hero-features {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+          }
+          .feature-card {
+            padding: 16px;
+          }
+        }
       `}</style>
     </div>
   );

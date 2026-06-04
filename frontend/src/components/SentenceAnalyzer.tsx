@@ -2,10 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { api } from '../services/api';
 
-interface SentenceAnalyzerProps {
-  // Let the parent know if it needs to update or trigger graph updates
-}
-
 const PRESET_SENTENCES = [
   "The quick and rapid runner felt happy and cheerful.",
   "Please wash and clean the dirty dishes to purify them.",
@@ -14,7 +10,7 @@ const PRESET_SENTENCES = [
   "The rapid response was smart and quick."
 ];
 
-export const SentenceAnalyzer: React.FC<SentenceAnalyzerProps> = () => {
+export const SentenceAnalyzer: React.FC = () => {
   const [sentence, setSentence] = useState('');
   const [wordSynonyms, setWordSynonyms] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
@@ -27,12 +23,9 @@ export const SentenceAnalyzer: React.FC<SentenceAnalyzerProps> = () => {
     }
 
     if (!sentence.trim()) {
-      setWordSynonyms({});
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
     debounceTimerRef.current = setTimeout(async () => {
       try {
         const response = await api.analyzeSentence(sentence);
@@ -53,6 +46,12 @@ export const SentenceAnalyzer: React.FC<SentenceAnalyzerProps> = () => {
 
   const handlePresetClick = (preset: string) => {
     setSentence(preset);
+    if (!preset.trim()) {
+      setWordSynonyms({});
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
   };
 
 
@@ -81,7 +80,16 @@ export const SentenceAnalyzer: React.FC<SentenceAnalyzerProps> = () => {
         rows={3}
         placeholder="Type a sentence here... (e.g. The runner was quick and happy)"
         value={sentence}
-        onChange={(e) => setSentence(e.target.value)}
+        onChange={(e) => {
+          const val = e.target.value;
+          setSentence(val);
+          if (!val.trim()) {
+            setWordSynonyms({});
+            setLoading(false);
+          } else {
+            setLoading(true);
+          }
+        }}
       />
 
       {/* Visual Live Output Grid */}
@@ -289,6 +297,29 @@ export const SentenceAnalyzer: React.FC<SentenceAnalyzerProps> = () => {
           background-color: var(--accent-soft);
           color: var(--accent);
           font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+          .tokens-grid {
+            row-gap: 24px;
+            column-gap: 4px;
+          }
+          .whitespace-token {
+            font-size: 14px;
+          }
+          .word-label {
+            font-size: 14px;
+            padding: 2px 3px;
+          }
+          .synonym-tooltip {
+            font-size: 9px;
+            padding: 2px 4px;
+          }
+          .preset-btn {
+            white-space: normal;
+            font-size: 12px;
+            padding: 8px 10px;
+          }
         }
       `}</style>
     </div>

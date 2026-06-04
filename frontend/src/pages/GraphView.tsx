@@ -31,8 +31,22 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
 
   // Graph state variables
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNode, setSelectedNode] = useState<D3Node | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<D3Node | null>(null);
+  const [selectedNode, _setSelectedNode] = useState<D3Node | null>(null);
+
+  const selectedNodeRef = useRef<D3Node | null>(null);
+  const hoveredNodeRef = useRef<D3Node | null>(null);
+
+  const setSelectedNode = (node: D3Node | null) => {
+    selectedNodeRef.current = node;
+    _setSelectedNode(node);
+  };
+
+  const setHoveredNode = (node: D3Node | null) => {
+    hoveredNodeRef.current = node;
+  };
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 768);
+  const [isLegendOpen, setIsLegendOpen] = useState(() => window.innerWidth > 768);
 
   // References to simulation and zoom objects to allow external control
   const simulationRef = useRef<d3.Simulation<D3Node, undefined> | null>(null);
@@ -48,8 +62,9 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         setLoading(true);
         const data = await api.getGraph();
         setGraphData(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to retrieve synonym graph.');
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to retrieve synonym graph.';
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -116,7 +131,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
       ctx.scale(transform.k, transform.k);
 
       // Determine active highlight path
-      const activeComponentGroup = selectedNode?.group ?? hoveredNode?.group ?? null;
+      const activeComponentGroup = selectedNodeRef.current?.group ?? hoveredNodeRef.current?.group ?? null;
 
       // 1. Draw Links
       ctx.lineWidth = 1;
@@ -141,12 +156,12 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
       // 2. Draw Nodes
       nodes.forEach(node => {
         const isHighlight = activeComponentGroup !== null && node.group === activeComponentGroup;
-        const isSelected = selectedNode?.id === node.id;
-        const isHovered = hoveredNode?.id === node.id;
+        const isSelected = selectedNodeRef.current?.id === node.id;
+        const isHovered = hoveredNodeRef.current?.id === node.id;
 
         ctx.beginPath();
         // Adjust node size based on importance (degree) or selection
-        let radius = isSelected ? 8 : (isHovered ? 7 : 5);
+        const radius = isSelected ? 8 : (isHovered ? 7 : 5);
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
 
         // Map cluster groups to beautiful HSL colors
@@ -256,7 +271,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
       const mx = event.clientX - rect.left;
       const my = event.clientY - rect.top;
       const node = findNode(mx, my);
-      if (node !== hoveredNode) {
+      if (node !== hoveredNodeRef.current) {
         setHoveredNode(node);
         draw();
       }
@@ -327,12 +342,29 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
 
   return (
     <div className="graph-view-container animate-fade-in" ref={containerRef}>
-      {/* Floating Control overlay panels */}
-      <div className="graph-sidebar card-glass">
-        <button onClick={onBackToDashboard} className="btn btn-secondary btn-sidebar-back">
-          <ArrowLeft size={16} />
-          Back to Dashboard
+      {/* Floating Toggle Button for Sidebar */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="btn btn-primary btn-floating-toggle-sidebar animate-fade-in"
+          title="Open Search & Stats"
+        >
+          <Search size={16} />
+          <span>Search & Stats</span>
         </button>
+      )}
+
+      {/* Floating Control overlay panels */}
+      <div className={`graph-sidebar card-glass ${isSidebarOpen ? 'open' : 'closed'}`}>
+        <div className="sidebar-header">
+          <button onClick={onBackToDashboard} className="btn btn-secondary btn-sidebar-back">
+            <ArrowLeft size={16} />
+            Dashboard
+          </button>
+          <button onClick={() => setIsSidebarOpen(false)} className="btn-close-sidebar" title="Collapse Panel">
+            ✕
+          </button>
+        </div>
 
         <div className="sidebar-divider"></div>
 
@@ -398,16 +430,19 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
       </div>
 
       {/* Graph Legend Overlay */}
-      <div className="graph-legend-overlay card-glass">
-        <div className="legend-title">
-          <HelpCircle size={14} />
-          <span>Interactive Legend</span>
+      <div className={`graph-legend-overlay card-glass ${isLegendOpen ? 'open' : 'collapsed'}`}>
+        <div className="legend-header-toggle" onClick={() => setIsLegendOpen(!isLegendOpen)}>
+          <HelpCircle size={16} />
+          <span>{isLegendOpen ? 'Interactive Legend' : 'Legend'}</span>
+          <span className="legend-toggle-arrow">{isLegendOpen ? '▼' : '▲'}</span>
         </div>
-        <ul>
-          <li>💡 Drag nodes to interact with physics.</li>
-          <li>💡 Scroll to Zoom. Drag canvas to Pan.</li>
-          <li>💡 Select a node to highlight its transitive synonym network.</li>
-        </ul>
+        {isLegendOpen && (
+          <ul className="animate-fade-in">
+            <li>💡 Drag nodes to interact with physics.</li>
+            <li>💡 Scroll to Zoom. Drag canvas to Pan.</li>
+            <li>💡 Select a node to highlight its transitive synonym network.</li>
+          </ul>
+        )}
       </div>
 
       {/* Render Canvas */}
@@ -445,6 +480,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
           width: 100%;
           height: 100%;
           cursor: grab;
+          touch-action: none;
         }
 
         .graph-canvas:active {
@@ -460,16 +496,68 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          z-index: 10;
+          z-index: 15;
           text-align: left;
           padding: 20px;
           border-radius: var(--radius-md);
+          transition: transform var(--transition-normal), opacity var(--transition-normal);
+        }
+
+        .graph-sidebar.closed {
+          transform: translateX(-120%);
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .graph-sidebar.open {
+          transform: translateX(0);
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .sidebar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
         }
 
         .btn-sidebar-back {
           justify-content: flex-start;
           font-size: 14px;
           padding: 8px 12px;
+        }
+
+        .btn-close-sidebar {
+          background: none;
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 12px;
+          transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+        }
+
+        .btn-close-sidebar:hover {
+          background-color: var(--accent-soft);
+          color: var(--accent);
+          border-color: var(--accent);
+        }
+
+        .btn-floating-toggle-sidebar {
+          position: absolute;
+          top: 24px;
+          left: 24px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: var(--shadow-md);
         }
 
         .sidebar-divider {
@@ -600,17 +688,29 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
           padding: 16px;
           text-align: left;
           border-radius: var(--radius-md);
+          transition: all var(--transition-fast);
         }
 
-        .legend-title {
+        .legend-header-toggle {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 12px;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 13px;
           font-weight: bold;
           color: var(--text-secondary);
           text-transform: uppercase;
-          margin-bottom: 8px;
+          user-select: none;
+        }
+
+        .legend-toggle-arrow {
+          margin-left: auto;
+          font-size: 10px;
+          opacity: 0.7;
+        }
+
+        .graph-legend-overlay.collapsed {
+          padding: 12px 16px;
         }
 
         .graph-legend-overlay ul {
@@ -618,6 +718,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          margin-top: 8px;
         }
 
         .graph-legend-overlay li {
@@ -658,6 +759,32 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
 
         .error-overlay {
           border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        @media (max-width: 768px) {
+          .graph-sidebar {
+            top: 12px;
+            left: 12px;
+            bottom: 12px;
+            height: auto;
+            width: calc(100% - 24px);
+            max-width: 320px;
+          }
+          .btn-floating-toggle-sidebar {
+            top: 12px;
+            left: 12px;
+            font-size: 14px;
+            padding: 10px 16px;
+          }
+          .canvas-controls-overlay {
+            bottom: 12px;
+            right: 12px;
+          }
+          .graph-legend-overlay {
+            bottom: 12px;
+            left: 12px;
+            max-width: calc(100% - 80px);
+          }
         }
       `}</style>
     </div>
