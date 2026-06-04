@@ -170,5 +170,33 @@ namespace SynonymsApp.Tests
             Assert.Equal(fastNode.Group, quickNode.Group);
             Assert.NotEqual(cleanNode.Group, fastNode.Group);
         }
+
+        [Fact]
+        public async Task AddSynonymPair_ShouldThrowException_WhenLimitOf5000WordsIsExceeded()
+        {
+            // Arrange
+            // Load 5000 unique words (2500 pairs) into the empty repository
+            for (int i = 0; i < 2500; i++)
+            {
+                await _service.AddSynonymPairAsync($"worda{i}", $"wordb{i}");
+            }
+
+            // Act & Assert:
+            // 1. Adding a completely new pair (2 new words) should throw
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await _service.AddSynonymPairAsync("newword1", "newword2");
+            });
+
+            // 2. Adding a pair with 1 new word and 1 existing word should throw
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await _service.AddSynonymPairAsync("newword1", "worda0");
+            });
+
+            // 3. Adding an relationship between two already existing words should succeed
+            // since it introduces no new words to the database
+            await _service.AddSynonymPairAsync("worda0", "wordb1");
+        }
     }
 }

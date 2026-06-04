@@ -12,6 +12,9 @@ namespace SynonymsApp.Repositories
         // Using ConcurrentDictionary<string, byte> as a thread-safe hash set for values
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _adjacencyList = new(StringComparer.OrdinalIgnoreCase);
 
+        // Security rate limiter/limit to prevent memory/storage exhaustion through open seeding/adding APIs.
+        private const int MaxUniqueWordsLimit = 5000;
+
         public Task AddPairAsync(string word1, string word2)
         {
             if (string.IsNullOrWhiteSpace(word1) || string.IsNullOrWhiteSpace(word2))
@@ -26,6 +29,16 @@ namespace SynonymsApp.Repositories
             if (w1 == w2)
             {
                 return Task.CompletedTask;
+            }
+
+            // Check if adding this pair would exceed the limit of 5000 unique words.
+            int newWordsCount = 0;
+            if (!_adjacencyList.ContainsKey(w1)) newWordsCount++;
+            if (!_adjacencyList.ContainsKey(w2)) newWordsCount++;
+
+            if (_adjacencyList.Count + newWordsCount > MaxUniqueWordsLimit)
+            {
+                throw new InvalidOperationException($"Cannot add synonym pair. The database is limited to a maximum of {MaxUniqueWordsLimit} words for security reasons.");
             }
 
             // Add w2 to w1's set

@@ -33,10 +33,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Infinite Scroll scroll handler
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 40) {
+      setVisibleCount((prev) => Math.min(prev + 50, searchResults.length));
+    }
+  };
+
 
   // External Seeding State
   const [seedLoading, setSeedLoading] = useState(false);
   const [seedSuccessMessage, setSeedSuccessMessage] = useState('');
+  const [hasSeeded, setHasSeeded] = useState(() => localStorage.getItem('synonyms_seeded') === 'true');
+
+  const isAlreadySeeded = seedCount > 100 || (hasSeeded && seedCount > 0);
 
   // Add Synonym Pair handler
   const handleAddPair = async (e: React.FormEvent) => {
@@ -78,6 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (e) e.preventDefault();
     setSearchError('');
     setSearchResults([]);
+    setVisibleCount(50); // Reset visible count on new search
 
     if (!searchQuery.trim()) {
       return;
@@ -105,6 +119,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const response = await api.seedExternal();
       setSeedCount(response.totalWords);
       setSeedSuccessMessage(`Successfully seeded! Loaded ${response.totalWords} unique words and relations.`);
+      setHasSeeded(true);
+      localStorage.setItem('synonyms_seeded', 'true');
     } catch (err: any) {
       setSeedSuccessMessage(`Error seeding: ${err.message}`);
     } finally {
@@ -214,13 +230,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {searchResults.length > 0 && (
               <div className="search-results animate-fade-in">
-                <h3>Synonyms for &quot;{searchQuery}&quot;:</h3>
-                <div className="results-list">
-                  {searchResults.map((word, idx) => (
-                    <span key={idx} className="result-badge animate-fade-in" style={{ animationDelay: `${idx * 40}ms` }}>
-                      {word}
-                    </span>
-                  ))}
+                <div className="results-header">
+                  <h3>Synonyms for &quot;{searchQuery}&quot;:</h3>
+                  <span className="results-counter">
+                    Loaded {Math.min(visibleCount, searchResults.length)} of {searchResults.length}
+                  </span>
+                </div>
+                <div className="results-list-container" onScroll={handleScroll}>
+                  <div className="results-list">
+                    {searchResults.slice(0, visibleCount).map((word, idx) => (
+                      <span key={idx} className="result-badge animate-fade-in" style={{ animationDelay: `${(idx % 50) * 15}ms` }}>
+                        {word}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -240,11 +263,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </p>
 
             <div className="seed-action-area">
-              <button onClick={handleSeedExternal} disabled={seedLoading} className="btn btn-secondary btn-seed">
+              <button
+                onClick={handleSeedExternal}
+                disabled={seedLoading || isAlreadySeeded}
+                className={`btn btn-secondary btn-seed ${isAlreadySeeded ? 'btn-seeded' : ''}`}
+              >
                 {seedLoading ? (
                   <>
                     <span className="spinner"></span>
                     Seeding 1000+ words (Calling Datamuse)...
+                  </>
+                ) : isAlreadySeeded ? (
+                  <>
+                    <Database size={16} className="database-icon" />
+                    Already imported: {seedCount} words
                   </>
                 ) : (
                   <>
@@ -511,10 +543,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
           border-top: 1px dashed var(--border);
         }
 
+        .results-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+
+        .results-counter {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--accent);
+          background-color: var(--accent-soft);
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+        }
+
+        .results-list-container {
+          max-height: 300px;
+          overflow-y: auto;
+          padding-right: 4px;
+          margin-top: 8px;
+        }
+
         .search-results h3 {
           font-size: 14px;
           font-weight: 600;
           color: var(--text-secondary);
+          margin-bottom: 0;
         }
 
         .results-list {
@@ -552,11 +608,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
           border-color: rgba(99, 102, 241, 0.3);
           background-color: var(--bg-secondary);
           color: var(--accent);
+          transition: all var(--transition-fast);
         }
 
-        .btn-seed:hover {
+        .btn-seed:hover:not(:disabled) {
           background-color: var(--accent-soft);
           border-color: var(--accent);
+        }
+
+        .btn-seed:disabled {
+          cursor: not-allowed;
+          opacity: 0.85;
+        }
+
+        .btn-seeded {
+          background-color: rgba(34, 197, 94, 0.1) !important;
+          border-color: rgba(34, 197, 94, 0.3) !important;
+          color: #22c55e !important;
+        }
+
+        .database-icon {
+          color: #22c55e;
         }
 
         .sparkle-icon {

@@ -31,8 +31,16 @@ namespace SynonymsApp.Controllers
                 return BadRequest(new { Message = "A word cannot be a synonym of itself." });
             }
 
-            await _synonymService.AddSynonymPairAsync(pair.Word1, pair.Word2);
-            return Ok(new { Message = "Synonym pair added successfully." });
+            try
+            {
+                await _synonymService.AddSynonymPairAsync(pair.Word1, pair.Word2);
+                return Ok(new { Message = "Synonym pair added successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Return Bad Request if database word limit / rate limit is exceeded
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         [HttpGet("{word}")]
