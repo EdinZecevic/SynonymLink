@@ -11,7 +11,7 @@ version: 1.1.0
     ```
 - **Running Frontend Checks & Tests:**
   - Navigate to the `frontend/` directory and execute:
-    - For running tests (if configured): `yarn test` or `npm run test`
+    - For running tests: `yarn test`
     - For checking linting issues: `yarn lint`
     - For checking production build validity: `yarn build`
 - **Error Resolution:** When a test or build step fails, analyze the console output to pinpoint and resolve code discrepancies immediately.

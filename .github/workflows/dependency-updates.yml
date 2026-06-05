@@ -1,0 +1,73 @@
+name: Automated Dependency Updates
+
+on:
+  schedule:
+    # Run every Sunday at midnight
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dependencies:
+    name: Check & Update Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      # 1. Update Frontend Dependencies
+      - name: Update Frontend Dependencies
+        working-directory: frontend
+        run: |
+          echo "Checking for frontend updates..."
+          npx npm-check-updates -u
+          yarn install
+
+      # 2. Update Backend Dependencies
+      - name: Update Backend Dependencies
+        run: |
+          echo "Installing dotnet-outdated tool..."
+          dotnet tool install -g dotnet-outdated-tool
+          echo "Updating backend NuGet packages..."
+          dotnet-outdated -u backend/SynonymsApp.sln
+
+      # 3. Create Pull Request if there are changes
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): update frontend and backend dependencies"
+          committer: GitHub <noreply@github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          branch: automated-dependency-updates
+          delete-branch: true
+          title: "chore(deps): automated dependency updates"
+          body: |
+            This is an automated pull request to update frontend (npm/yarn) and backend (NuGet) dependencies to their latest stable versions.
+
+            ### What was updated:
+            - **Frontend**: Scanned and updated packages via `npm-check-updates` and re-generated `yarn.lock`.
+            - **Backend**: Updated NuGet packages to the latest stable versions via `dotnet-outdated`.
+
+            Please verify that all tests pass and that the application builds correctly before merging.
+          labels: |
+            dependencies
+            automated-pr

@@ -16,6 +16,7 @@ This skill serves as the entrypoint and provides a high-level overview of the pr
   - For executing and validating tests, consult the `run-tests` skill.
 - **General Rules:**
   - Maintain clean code, use thread-safe data structures on the backend, and avoid TailwindCSS on the frontend unless explicitly requested.
+  - Before concluding any coding task, you must run verification checks (frontend `yarn lint`, `yarn test`, and backend `dotnet test`) and resolve any errors immediately.
 - **Documentation & README Rules:**
   - For every additional functionality added to the project, the `README.md` file must be updated.
   - The `README.md` file and all other documentation must be written entirely in English.

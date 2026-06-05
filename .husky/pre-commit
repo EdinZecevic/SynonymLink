@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "=== Running Pre-Commit Hooks (Frontend Code Quality check) ==="
+cd frontend && yarn lint

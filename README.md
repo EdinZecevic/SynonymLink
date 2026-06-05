@@ -19,6 +19,9 @@ The application features a clean architecture **.NET 8 Web API** backend and a m
 6. **Harmonious Theme:** A responsive design with premium glassmorphic styling, smooth CSS transitions, and a toggle between light and dark mode.
 7. **Session Tracking:** Generates a unique guest session UUID on the frontend and isolates synonym data per user via custom `X-User-Id` headers.
 8. **Cascading Word Deletion:** Allows deleting individual words and recursively pruning their first-degree and second-degree connections with a confirmation preview.
+9. **Automated Quality Hooks:** Enforces code style checks during commit and runs test suites before pushes.
+10. **Pull Request Quality Gates:** Automatically validates frontend builds, styles, and backend tests on every pull request.
+11. **Automated Dependency PRs:** Checks for outdated libraries weekly to open pull requests with upgrades automatically.
 
 ---
 
@@ -128,4 +131,28 @@ Open your browser at `http://localhost:5173` to explore the app.
 4. In Environment Variables, set:
    `VITE_API_URL=https://<your-render-backend-url>/api`
 5. Click **Deploy**. Vercel will build and serve your React app globally.
-# SynonymLink
+
+---
+
+## Git Hooks, CI Quality Gates & Automations
+
+### Git Hooks (Husky)
+To enforce code quality and verify that no broken tests are committed or pushed:
+- **Pre-commit Hook**: Runs ESLint checks on the frontend to ensure high code quality.
+- **Pre-push Hook**: Executes both frontend and backend tests, preventing pushing if any test fails.
+
+To set up Git hooks locally, run:
+```bash
+yarn install
+```
+
+### CI Quality Gates (GitHub Actions)
+Every pull request targeting the `main` or `master` branch triggers the [CI Quality Gates workflow](.github/workflows/ci.yml):
+- **Frontend Job**: Validates the codebase using linter (`yarn lint`), builds the project (`yarn build`), and runs tests (`yarn test`).
+- **Backend Job**: Sets up the .NET environment, restores NuGet packages, builds the backend, and runs backend tests (`dotnet test`).
+
+### Automated Dependency Updates
+The [Automated Dependency Updates workflow](.github/workflows/dependency-updates.yml) runs automatically every Sunday (or can be triggered manually) to check for newer package versions:
+- **Frontend**: Scans and upgrades package dependencies via `npm-check-updates` and regenerates `yarn.lock`.
+- **Backend**: Scans and upgrades NuGet package dependencies to their latest stable version via `dotnet-outdated`.
+- If updates are available, a new branch is created and a Pull Request is opened automatically to merge the changes.
