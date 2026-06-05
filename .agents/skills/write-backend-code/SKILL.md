@@ -8,3 +8,5 @@ version: 1.1.0
 - **Thread-safety:** Since an in-memory repository (`InMemorySynonymRepository`) is used, all data operations must be thread-safe (use `ConcurrentDictionary` and thread-safe operations).
 - **Business Logic:** All calculations (such as BFS traversal for transitive synonyms and connected component grouping for the graph) must reside exclusively in the service layer (`SynonymService`).
 - **Interfaces:** Always program against interfaces (e.g. `ISynonymRepository` and `ISynonymService`) to facilitate testing and potential future storage replacements.
+- **Verification:** Before concluding any backend changes, always run backend unit tests (`dotnet test`) to ensure everything compiles and all tests pass without errors.
+
