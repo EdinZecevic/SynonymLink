@@ -1,13 +1,13 @@
 ---
 name: write-tests
 description: Use this skill when creating, writing, or modifying unit, integration, or system tests for either the frontend (React) or backend (.NET).
-version: 1.0.0
+version: 1.1.0
 ---
-# Upute za pisanje testova
-- **Pristup:** Koristi AAA (Arrange-Act-Assert) uzorak za pisanje jasnih i čitljivih testova.
-- **Backend testovi:**
-  - Pišu se u projektu `SynonymsApp.Tests`.
-  - Fokusiraj se na testiranje servisne logike (`SynonymService`) i repozitorija.
-  - Koristi mock-ove (npr. zamjenske implementacije ili mock biblioteke) za vanjske ovisnosti poput Datamuse API-ja.
-- **Frontend testovi:**
-  - Pišu se unutar `frontend` direktorija prateći konfiguraciju projekta (npr. Vitest ili Jest ako su postavljeni).
+# Test Writing Guidelines
+- **Approach:** Use the AAA (Arrange-Act-Assert) pattern for clean and readable test code.
+- **Backend Tests:**
+  - Locate them in the `SynonymsApp.Tests` project.
+  - Focus on testing service logic (`SynonymService`) and repositories.
+  - Use mocks (e.g., substitute implementations or mock frameworks) for external dependencies like the Datamuse API.
+- **Frontend Tests:**
+  - Write them inside the `frontend` directory, matching the project's test framework setup (e.g., Vitest or Jest if configured).

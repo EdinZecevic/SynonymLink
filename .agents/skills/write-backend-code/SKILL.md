@@ -1,10 +1,10 @@
 ---
 name: write-backend-code
 description: Use this skill when writing, modifying, or refactoring C# / .NET 8 Web API backend code, including Controllers, Services, Repositories, and Models.
-version: 1.0.0
+version: 1.1.0
 ---
-# Upute za pisanje backend koda
-- **Arhitektura:** Prati Clean Architecture principe (odvajanje na Controller, Service, Repository i Model slojeve).
-- **Sigurnost niti (Thread-safety):** Budući da se koristi in-memory repozitorij (`InMemorySynonymRepository`), sve operacije nad podacima moraju biti thread-safe (koristi npr. `ConcurrentDictionary` i thread-safe operacije).
-- **Biznis logika:** Sve kalkulacije (poput BFS pretrage za tranzitivne sinonime i grupiranje komponenti za graf) trebaju se nalaziti isključivo u servisnom sloju (`SynonymService`).
-- **Sučelja:** Uvijek programiraj prema sučeljima (npr. `ISynonymRepository` i `ISynonymService`) radi lakšeg testiranja i buduće zamjene pohrane.
+# Backend Coding Guidelines
+- **Architecture:** Follow Clean Architecture principles (separating into Controller, Service, Repository, and Model layers).
+- **Thread-safety:** Since an in-memory repository (`InMemorySynonymRepository`) is used, all data operations must be thread-safe (use `ConcurrentDictionary` and thread-safe operations).
+- **Business Logic:** All calculations (such as BFS traversal for transitive synonyms and connected component grouping for the graph) must reside exclusively in the service layer (`SynonymService`).
+- **Interfaces:** Always program against interfaces (e.g. `ISynonymRepository` and `ISynonymService`) to facilitate testing and potential future storage replacements.

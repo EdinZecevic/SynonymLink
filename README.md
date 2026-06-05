@@ -4,16 +4,21 @@ SynonymLink is a production-ready, high-performance web application designed to 
 
 The application features a clean architecture **.NET 8 Web API** backend and a modern **ReactJS (TypeScript + Vite)** frontend.
 
+- **Frontend Application:** [https://synonym-link.vercel.app/](https://synonym-link.vercel.app/)
+- **Production API Service:** [https://synonym-link-api.onrender.com](https://synonym-link-api.onrender.com)
+
 ---
 
 ## Key Features
 
-1. **Manual Entry:** Add bi-directional synonym pairs (`A` is a synonym of `B` implies `B` is a synonym of `A`).
-2. **Transitive Relations:** Resolves multi-level connections. If `A = B` and `B = C`, searching for `A` returns `{B, C}` and searching for `C` returns `{A, B}` automatically.
-3. **Live Sentence Analyzer:** A text field that dynamically tokenizes your inputs and overlays matching synonyms directly above each recognized word. Includes 5 clickable presets for instant testing.
-4. **1,000+ Word Seeding:** Trigger seeding to query the **Datamuse API** recursively across 30+ core English words, populating the repository with over 1,000 unique words and relations.
-5. **Interactive Network Graph:** A fullscreen, physics-simulated D3 force-directed HTML5 Canvas graph. It groups and colors nodes by their connected component (synonym group), supports panning, zooming, and node dragging, and allows selecting words to highlight their local transitive network.
-6. **Harmonious Theme:** Light and Dark mode toggle with premium glassmorphic styling, smooth CSS transitions, and fully responsive layouts.
+1. **Manual Entry:** Add bi-directional synonym pairs where if `A` is a synonym of `B`, `B` is automatically mapped as a synonym of `A`.
+2. **Transitive Relations:** Automatically resolves multi-level connections so that if `A = B` and `B = C`, searching for any word retrieves the entire transitive set.
+3. **Live Sentence Analyzer:** A dynamic text input that tokenizes sentences on the fly, overlays matching synonyms above recognized words, and includes clickable presets for instant testing.
+4. **1,000+ Word Seeding:** Populate the database with over 1,000 unique words by triggering a recursive seeding process against the external Datamuse API.
+5. **Interactive Network Graph:** A fullscreen D3 force-directed canvas graph that supports dragging, zooming, and grouping synonyms dynamically by color component.
+6. **Harmonious Theme:** A responsive design with premium glassmorphic styling, smooth CSS transitions, and a toggle between light and dark mode.
+7. **Session Tracking:** Generates a unique guest session UUID on the frontend and isolates synonym data per user via custom `X-User-Id` headers.
+8. **Cascading Word Deletion:** Allows deleting individual words and recursively pruning their first-degree and second-degree connections with a confirmation preview.
 
 ---
 
@@ -103,6 +108,8 @@ Open your browser at `http://localhost:5173` to explore the app.
 | `POST` | `/api/synonyms/analyze` | Split a sentence and lookup synonyms for each word. JSON body: `{ "sentence": "..." }` |
 | `GET` | `/api/synonyms/graph` | Retrieve the complete graph structured with color groups for network rendering. |
 | `POST` | `/api/synonyms/seed-external` | Seed 1,000+ words from the Datamuse API. |
+| `GET` | `/api/synonyms/{word}/delete-preview` | Get a preview of cascading connection deletions before performing a delete. |
+| `DELETE` | `/api/synonyms/{word}` | Delete a word and its connections (optional query parameter `mode` defaults to "cascade"). |
 
 ---
 
