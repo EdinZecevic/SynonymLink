@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Plus, Search, Moon, Sun, ArrowLeft, Database, Sparkles, BookOpen } from 'lucide-react';
+import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../services/api';
 
 interface DashboardProps {
@@ -25,6 +26,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   currentUser,
   onResetSession
 }) => {
+  const { t } = useTranslation();
+
   // Add Pair Form State
   const [word1, setWord1] = useState('');
   const [word2, setWord2] = useState('');
@@ -65,19 +68,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setAddSuccess('');
 
     if (!word1.trim() || !word2.trim()) {
-      setAddError('Both fields are required.');
+      setAddError(t('dashboard.errorFieldsRequired'));
       return;
     }
 
     if (word1.trim().toLowerCase() === word2.trim().toLowerCase()) {
-      setAddError('A word cannot be a synonym of itself.');
+      setAddError(t('dashboard.errorSelfSynonym'));
       return;
     }
 
     setAddLoading(true);
     try {
       await api.addSynonymPair(word1, word2);
-      setAddSuccess(`Linked "${word1}" and "${word2}" successfully!`);
+      setAddSuccess(t('dashboard.successLinked', { word1, word2 }));
       setWord1('');
       setWord2('');
       // Trigger search update if search query matches one of the words
@@ -87,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       // Increment count slightly for visualization
       setSeedCount(prev => prev > 0 ? prev + 1 : 2);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'An error occurred.';
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorGeneral');
       setAddError(errorMsg);
     } finally {
       setAddLoading(false);
@@ -110,10 +113,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const results = await api.getSynonyms(searchQuery);
       setSearchResults(results);
       if (results.length === 0) {
-        setSearchError(`No synonyms found for "${searchQuery}".`);
+        setSearchError(t('dashboard.errorNoSynonyms', { query: searchQuery }));
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error executing search.';
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorSearch');
       setSearchError(errorMsg);
     } finally {
       setSearchLoading(false);
@@ -127,15 +130,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const response = await api.seedExternal();
       setSeedCount(response.totalWords);
-      setSeedSuccessMessage(`Successfully seeded! Loaded ${response.totalWords} unique words and relations.`);
+      setSeedSuccessMessage(t('dashboard.seedingSuccess', { count: response.totalWords }));
       setHasSeeded(true);
       const uuid = localStorage.getItem('synonym_link_uuid');
       if (uuid) {
         localStorage.setItem(`synonyms_seeded_${uuid}`, 'true');
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'An unknown error occurred.';
-      setSeedSuccessMessage(`Error seeding: ${errorMsg}`);
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorGeneral');
+      setSeedSuccessMessage(t('dashboard.seedingError', { error: errorMsg }));
     } finally {
       setSeedLoading(false);
     }
@@ -151,7 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
           <div className="logo-group">
             <Share2 className="logo-icon" />
-            <span className="logo-text">Dashboard</span>
+            <span className="logo-text">{t('dashboard.title')}</span>
           </div>
           {currentUser && (
             <div className="session-badge card-glass">
@@ -167,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {seedCount > 0 && (
             <button onClick={onOpenGraph} className="btn btn-primary btn-graph animate-pulse-slow">
               <Share2 size={16} />
-              Open Visual Graph ({seedCount} Nodes)
+              {t('dashboard.openVisualGraph', { count: seedCount })}
             </button>
           )}
           <button onClick={onResetSession} className="btn btn-secondary btn-switch-session" title="Switch User / Start New Session">
@@ -187,30 +190,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="card-glass panel-card">
             <div className="panel-title-group">
               <Plus className="title-icon" />
-              <h2>Add Synonym Pair</h2>
+              <h2>{t('dashboard.addSynonymPairTitle')}</h2>
             </div>
-            <p className="panel-desc">Define a new bi-directional connection between two words.</p>
+            <p className="panel-desc">{t('dashboard.addSynonymPairDesc')}</p>
 
             <form onSubmit={handleAddPair} className="panel-form">
               <div className="input-group">
-                <label htmlFor="word1">First Word</label>
+                <label htmlFor="word1">{t('dashboard.firstWord')}</label>
                 <input
                   id="word1"
                   type="text"
                   className="input-field"
-                  placeholder="e.g. clean"
+                  placeholder={t('dashboard.placeholderClean')}
                   value={word1}
                   onChange={(e) => setWord1(e.target.value)}
                 />
               </div>
 
               <div className="input-group">
-                <label htmlFor="word2">Second Word</label>
+                <label htmlFor="word2">{t('dashboard.secondWord')}</label>
                 <input
                   id="word2"
                   type="text"
                   className="input-field"
-                  placeholder="e.g. wash"
+                  placeholder={t('dashboard.placeholderWash')}
                   value={word2}
                   onChange={(e) => setWord2(e.target.value)}
                 />
@@ -220,7 +223,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {addSuccess && <div className="message-box success-box">{addSuccess}</div>}
 
               <button type="submit" disabled={addLoading} className="btn btn-primary btn-submit">
-                {addLoading ? <span className="spinner"></span> : 'Connect Words'}
+                {addLoading ? <span className="spinner"></span> : t('dashboard.connectWords')}
               </button>
             </form>
           </div>
@@ -229,16 +232,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="card-glass panel-card">
             <div className="panel-title-group">
               <Search className="title-icon" />
-              <h2>Bi-directional & Transitive Lookup</h2>
+              <h2>{t('dashboard.lookupTitle')}</h2>
             </div>
-            <p className="panel-desc">Search for a word to resolve all its linked synonyms transitively.</p>
+            <p className="panel-desc">{t('dashboard.lookupDesc')}</p>
 
             <form onSubmit={handleSearch} className="search-form">
               <div className="search-input-wrapper">
                 <input
                   type="text"
                   className="input-field search-input"
-                  placeholder="Enter word (e.g. clean, fast)"
+                  placeholder={t('dashboard.placeholderSearch')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -248,16 +251,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </form>
 
-            {searchLoading && <div className="search-loader"><span className="spinner"></span> Resolving relationships...</div>}
+            {searchLoading && <div className="search-loader"><span className="spinner"></span> {t('dashboard.resolving')}</div>}
 
             {searchError && <div className="message-box error-box search-msg">{searchError}</div>}
 
             {searchResults.length > 0 && (
               <div className="search-results animate-fade-in">
                 <div className="results-header">
-                  <h3>Synonyms for &quot;{searchQuery}&quot;:</h3>
+                  <h3>{t('dashboard.synonymsFor', { query: searchQuery })}</h3>
                   <span className="results-counter">
-                    Loaded {Math.min(visibleCount, searchResults.length)} of {searchResults.length}
+                    {t('dashboard.loadedCounter', { visible: Math.min(visibleCount, searchResults.length), total: searchResults.length })}
                   </span>
                 </div>
                 <div className="results-list-container" onScroll={handleScroll}>
@@ -280,10 +283,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="card-glass panel-card seed-card">
             <div className="panel-title-group">
               <Database className="title-icon text-accent" />
-              <h2>External API Demo Seeding</h2>
+              <h2>{t('dashboard.seedingTitle')}</h2>
             </div>
             <p className="panel-desc">
-              Import a massive dataset of <strong>1,000+ words</strong> from the Datamuse API to simulate a heavy, real-world synonym relational web.
+              <Trans i18nKey="dashboard.seedingDesc">
+                Import a massive dataset of <strong>1,000+ words</strong> from the Datamuse API to simulate a heavy, real-world synonym relational web.
+              </Trans>
             </p>
 
             <div className="seed-action-area">
@@ -295,17 +300,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {seedLoading ? (
                   <>
                     <span className="spinner"></span>
-                    Seeding 1000+ words (Calling Datamuse)...
+                    {t('dashboard.seedingBtnLoading')}
                   </>
                 ) : isAlreadySeeded ? (
                   <>
                     <Database size={16} className="database-icon" />
-                    Already imported: {seedCount} words
+                    {t('dashboard.seedingBtnSeeded', { count: seedCount })}
                   </>
                 ) : (
                   <>
                     <Sparkles size={16} className="sparkle-icon" />
-                    Fetch & Seed from External API
+                    {t('dashboard.seedingBtnDefault')}
                   </>
                 )}
               </button>
@@ -319,7 +324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {seedCount > 0 && !seedSuccessMessage && (
                 <div className="db-stats">
                   <BookOpen size={14} />
-                  <span>Currently holding {seedCount} unique words in-memory.</span>
+                  <span>{t('dashboard.dbStats', { count: seedCount })}</span>
                 </div>
               )}
             </div>

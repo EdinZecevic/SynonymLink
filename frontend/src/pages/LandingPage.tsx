@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Search, Share2, Activity, Moon, Sun, User, RefreshCw } from 'lucide-react';
+import { useTranslation, Trans } from 'react-i18next';
 
 interface LandingPageProps {
   onStartSession: (name: string, isNew: boolean) => void;
@@ -8,6 +9,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme, toggleTheme }) => {
+  const { t } = useTranslation();
   const [nameInput, setNameInput] = useState('');
   const [showNameForm, setShowNameForm] = useState(false);
 
@@ -32,7 +34,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
       <header className="landing-header">
         <div className="logo-group">
           <Share2 className="logo-icon animate-pulse" />
-          <span className="logo-text">SynonymLink</span>
+          <span className="logo-text">{t('landing.logoText')}</span>
         </div>
         <button onClick={toggleTheme} className="theme-toggle-btn" aria-label="Toggle theme">
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
@@ -42,12 +44,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
       {/* Hero Section */}
       <main className="landing-hero">
         <div className="hero-content">
-          <div className="badge">Advanced NLP & Graph Visualization</div>
+          <div className="badge">{t('landing.badge')}</div>
           <h1 className="hero-title">
-            Explore the Hidden Connections of <span className="gradient-text">Language</span>
+            <Trans i18nKey="landing.heroTitle">
+              Explore the Hidden Connections of <span className="gradient-text">Language</span>
+            </Trans>
           </h1>
           <p className="hero-subtitle">
-            A production-ready dictionary management tool featuring transitive relationships, live sentence parsing, and an isolated guest-session web graph.
+            {t('landing.heroSubtitle')}
           </p>
 
           <div className="cta-container">
@@ -56,8 +60,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                 <div className="user-info">
                   <User className="user-icon" size={24} />
                   <div>
-                    <div className="user-greeting">Welcome back, <strong>{existingName}</strong>!</div>
-                    <div className="user-uuid-sub">Session ID: {existingUuid?.substring(0, 8)}...</div>
+                    <div className="user-greeting">
+                      <Trans i18nKey="landing.welcomeBack" values={{ name: existingName }}>
+                        Welcome back, <strong>{existingName}</strong>!
+                      </Trans>
+                    </div>
+                    <div className="user-uuid-sub">
+                      {t('landing.sessionId', { sessionId: existingUuid?.substring(0, 8) })}
+                    </div>
                   </div>
                 </div>
                 <div className="existing-session-actions">
@@ -65,7 +75,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                     onClick={() => onStartSession(existingName, false)} 
                     className="btn btn-primary btn-hero animate-pulse-slow"
                   >
-                    Continue Session
+                    {t('landing.continueSession')}
                     <ArrowRight size={18} className="arrow-icon" />
                   </button>
                   <button 
@@ -73,7 +83,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                     className="btn btn-secondary btn-reset-session"
                   >
                     <RefreshCw size={14} />
-                    Start New Session
+                    {t('landing.startNewSession')}
                   </button>
                 </div>
               </div>
@@ -84,7 +94,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                   <input
                     type="text"
                     className="input-field landing-input"
-                    placeholder="Enter interviewer name..."
+                    placeholder={t('landing.placeholderName')}
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
                     maxLength={30}
@@ -92,7 +102,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                   />
                 </div>
                 <button type="submit" className="btn btn-primary btn-hero">
-                  Get Started
+                  {t('landing.getStarted')}
                   <ArrowRight size={18} className="arrow-icon" />
                 </button>
                 {existingName && (
@@ -101,7 +111,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
                     onClick={() => setShowNameForm(false)} 
                     className="btn-cancel-new"
                   >
-                    Cancel
+                    {t('landing.cancel')}
                   </button>
                 )}
               </form>
@@ -113,20 +123,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartSession, theme,
         <div className="hero-features">
           <div className="card-glass feature-card">
             <Search className="feature-icon" />
-            <h3>Transitive Lookup</h3>
-            <p>If A is a synonym to B, and B to C, lookup immediately resolves and links A and C together.</p>
+            <h3>{t('landing.transitiveTitle')}</h3>
+            <p>{t('landing.transitiveDesc')}</p>
           </div>
 
           <div className="card-glass feature-card">
             <Activity className="feature-icon" />
-            <h3>Live Sentence Analyzer</h3>
-            <p>Type complete sentences and watch synonyms appear instantly above each recognized word as you write.</p>
+            <h3>{t('landing.sentenceAnalyzerTitle')}</h3>
+            <p>{t('landing.sentenceAnalyzerDesc')}</p>
           </div>
 
           <div className="card-glass feature-card">
             <Share2 className="feature-icon" />
-            <h3>Interactive Relationship Graph</h3>
-            <p>Browse a visual, force-directed network showing word clusters color-coded by semantic groups.</p>
+            <h3>{t('landing.relationshipGraphTitle')}</h3>
+            <p>{t('landing.relationshipGraphDesc')}</p>
           </div>
         </div>
       </main>

@@ -1,20 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 
-const PRESET_SENTENCES = [
-  "The quick and rapid runner felt happy and cheerful.",
-  "Please wash and clean the dirty dishes to purify them.",
-  "An intelligent and clever student solved the fast puzzle.",
-  "A joyful child loves a clean and tidy room.",
-  "The rapid response was smart and quick."
-];
-
 export const SentenceAnalyzer: React.FC = () => {
+  const { t } = useTranslation();
   const [sentence, setSentence] = useState('');
   const [wordSynonyms, setWordSynonyms] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load presets dynamically from i18n
+  const presetsObj = t('analyzer.presets', { returnObjects: true });
+  const presetSentences = typeof presetsObj === 'object' && presetsObj !== null
+    ? Object.values(presetsObj) as string[]
+    : [];
 
   // Debounced API call to analyze sentence
   useEffect(() => {
@@ -68,35 +68,52 @@ export const SentenceAnalyzer: React.FC = () => {
     <div className="card-glass panel-card analyzer-card">
       <div className="panel-title-group">
         <MessageSquare className="title-icon text-accent" />
-        <h2>Live Sentence Analyzer</h2>
+        <h2>{t('analyzer.title')}</h2>
       </div>
       <p className="panel-desc">
-        Type a sentence. Synonym overlays will appear dynamically above matching words as you type.
+        {t('analyzer.desc')}
       </p>
 
-      {/* Input Field */}
-      <textarea
-        className="input-field textarea-field"
-        rows={3}
-        placeholder="Type a sentence here... (e.g. The runner was quick and happy)"
-        value={sentence}
-        onChange={(e) => {
-          const val = e.target.value;
-          setSentence(val);
-          if (!val.trim()) {
-            setWordSynonyms({});
-            setLoading(false);
-          } else {
-            setLoading(true);
-          }
-        }}
-      />
+      {/* Input Field Container */}
+      <div className="textarea-container">
+        <textarea
+          className="input-field textarea-field"
+          rows={3}
+          placeholder={t('analyzer.placeholder')}
+          value={sentence}
+          onChange={(e) => {
+            const val = e.target.value;
+            setSentence(val);
+            if (!val.trim()) {
+              setWordSynonyms({});
+              setLoading(false);
+            } else {
+              setLoading(true);
+            }
+          }}
+        />
+        {sentence && (
+          <button
+            type="button"
+            className="clear-btn animate-fade-in"
+            onClick={() => {
+              setSentence('');
+              setWordSynonyms({});
+              setLoading(false);
+            }}
+            aria-label={t('analyzer.clear')}
+            title={t('analyzer.clear')}
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
 
       {/* Visual Live Output Grid */}
       {sentence.trim() && (
         <div className="analysis-output-container card-glass">
           <div className="analysis-header">
-            <span>Visual Tokenizer Output</span>
+            <span>{t('analyzer.tokenizerOutput')}</span>
             {loading && <span className="spinner spinner-sm"></span>}
           </div>
 
@@ -139,15 +156,15 @@ export const SentenceAnalyzer: React.FC = () => {
 
       {/* Presets List */}
       <div className="presets-area">
-        <span className="presets-label">Quick-Start Preset Sentences:</span>
+        <span className="presets-label">{t('analyzer.presetsLabel')}</span>
         <div className="presets-list">
-          {PRESET_SENTENCES.map((preset, idx) => (
+          {presetSentences.map((preset, idx) => (
             <button
               key={idx}
               type="button"
               className="preset-btn"
               onClick={() => handlePresetClick(preset)}
-              title="Click to fill analyzer"
+              title={t('analyzer.clickToFill', 'Click to fill analyzer')}
             >
               {preset}
             </button>
@@ -161,10 +178,45 @@ export const SentenceAnalyzer: React.FC = () => {
           border: 1px solid rgba(99, 102, 241, 0.15);
         }
 
+        .textarea-container {
+          position: relative;
+          width: 100%;
+        }
+
         .textarea-field {
           resize: vertical;
           min-height: 80px;
           line-height: 1.5;
+          padding-right: 40px; /* Leave space for clear button */
+        }
+
+        .clear-btn {
+          position: absolute;
+          right: 12px;
+          top: 12px;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+          border-radius: 50%;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .clear-btn:hover {
+          background-color: var(--accent-soft);
+          border-color: var(--accent);
+          color: var(--accent);
+          transform: scale(1.05);
+        }
+
+        .clear-btn:active {
+          transform: scale(0.95);
         }
 
         /* Presets */

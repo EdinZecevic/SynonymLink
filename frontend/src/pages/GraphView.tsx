@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { ArrowLeft, Search, ZoomIn, ZoomOut, RotateCcw, HelpCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import type { GraphResponse, GraphNode } from '../services/api';
 
@@ -22,6 +23,7 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
 }
 
 export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -63,14 +65,14 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         const data = await api.getGraph();
         setGraphData(data);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to retrieve synonym graph.';
+        const errorMsg = err instanceof Error ? err.message : t('graph.errorLoad');
         setError(errorMsg);
       } finally {
         setLoading(false);
       }
     };
     fetchGraph();
-  }, []);
+  }, [t]);
 
   // Main Canvas & D3 force simulation loop
   useEffect(() => {
@@ -336,7 +338,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         .duration(750)
         .call(zoomBehaviorRef.current.transform, targetTransform);
     } else {
-      alert(`Word "${searchTerm}" not found in graph.`);
+      alert(t('graph.alertNotFound', { searchTerm }));
     }
   };
 
@@ -347,10 +349,10 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="btn btn-primary btn-floating-toggle-sidebar animate-fade-in"
-          title="Open Search & Stats"
+          title={t('graph.searchAndStats')}
         >
           <Search size={16} />
-          <span>Search & Stats</span>
+          <span>{t('graph.searchAndStats')}</span>
         </button>
       )}
 
@@ -359,64 +361,64 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         <div className="sidebar-header">
           <button onClick={onBackToDashboard} className="btn btn-secondary btn-sidebar-back">
             <ArrowLeft size={16} />
-            Dashboard
+            {t('graph.dashboardBtn')}
           </button>
-          <button onClick={() => setIsSidebarOpen(false)} className="btn-close-sidebar" title="Collapse Panel">
+          <button onClick={() => setIsSidebarOpen(false)} className="btn-close-sidebar" title={t('graph.collapsePanel')}>
             ✕
           </button>
         </div>
 
         <div className="sidebar-divider"></div>
 
-        <h3>Search Graph</h3>
+        <h3>{t('graph.searchGraph')}</h3>
         <form onSubmit={handleSearchSubmit} className="graph-search-form">
           <input
             type="text"
             className="input-field graph-search-input"
-            placeholder="Search word (e.g. clean)"
+            placeholder={t('graph.placeholderSearchGraph')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <button type="submit" className="btn btn-primary btn-search-go" title="Find node">
+          <button type="submit" className="btn btn-primary btn-search-go" title={t('graph.findNode')}>
             <Search size={14} />
           </button>
         </form>
 
         <div className="sidebar-divider"></div>
 
-        <h3>Stats</h3>
+        <h3>{t('graph.stats')}</h3>
         {graphData ? (
           <div className="graph-stats-list">
             <div className="stat-item">
-              <span className="stat-lbl">Unique Words:</span>
+              <span className="stat-lbl">{t('graph.uniqueWords')}</span>
               <span className="stat-val">{graphData.nodes.length}</span>
             </div>
             <div className="stat-item">
-              <span className="stat-lbl">Connected Pairs:</span>
+              <span className="stat-lbl">{t('graph.connectedPairs')}</span>
               <span className="stat-val">{graphData.links.length}</span>
             </div>
             <div className="stat-item">
-              <span className="stat-lbl">Synonym Groups:</span>
+              <span className="stat-lbl">{t('graph.synonymGroups')}</span>
               <span className="stat-val">
                 {new Set(graphData.nodes.map(n => n.group)).size}
               </span>
             </div>
           </div>
         ) : (
-          <div>Calculating...</div>
+          <div>{t('graph.calculating')}</div>
         )}
 
         <div className="sidebar-divider"></div>
 
         {selectedNode && (
           <div className="node-detail-panel animate-fade-in">
-            <h4>Selected Node</h4>
+            <h4>{t('graph.selectedNode')}</h4>
             <div className="selected-badge">{selectedNode.id}</div>
             <p className="detail-help">
-              Highlighting component group {selectedNode.group}. Click empty space or drag another node to change.
+              {t('graph.highlightingHelp', { group: selectedNode.group })}
             </p>
             <button onClick={() => setSelectedNode(null)} className="btn btn-secondary btn-sm">
-              Clear Selection
+              {t('graph.clearSelection')}
             </button>
           </div>
         )}
@@ -424,23 +426,23 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
 
       {/* Floating Canvas Controls */}
       <div className="canvas-controls-overlay card-glass">
-        <button onClick={zoomIn} className="btn-control" title="Zoom In"><ZoomIn size={16} /></button>
-        <button onClick={zoomOut} className="btn-control" title="Zoom Out"><ZoomOut size={16} /></button>
-        <button onClick={resetZoom} className="btn-control" title="Reset View"><RotateCcw size={16} /></button>
+        <button onClick={zoomIn} className="btn-control" title={t('graph.zoomIn')}><ZoomIn size={16} /></button>
+        <button onClick={zoomOut} className="btn-control" title={t('graph.zoomOut')}><ZoomOut size={16} /></button>
+        <button onClick={resetZoom} className="btn-control" title={t('graph.resetView')}><RotateCcw size={16} /></button>
       </div>
 
       {/* Graph Legend Overlay */}
       <div className={`graph-legend-overlay card-glass ${isLegendOpen ? 'open' : 'collapsed'}`}>
         <div className="legend-header-toggle" onClick={() => setIsLegendOpen(!isLegendOpen)}>
           <HelpCircle size={16} />
-          <span>{isLegendOpen ? 'Interactive Legend' : 'Legend'}</span>
+          <span>{isLegendOpen ? t('graph.interactiveLegend') : t('graph.legend')}</span>
           <span className="legend-toggle-arrow">{isLegendOpen ? '▼' : '▲'}</span>
         </div>
         {isLegendOpen && (
           <ul className="animate-fade-in">
-            <li>💡 Drag nodes to interact with physics.</li>
-            <li>💡 Scroll to Zoom. Drag canvas to Pan.</li>
-            <li>💡 Select a node to highlight its transitive synonym network.</li>
+            <li>{t('graph.legendTip1')}</li>
+            <li>{t('graph.legendTip2')}</li>
+            <li>{t('graph.legendTip3')}</li>
           </ul>
         )}
       </div>
@@ -452,16 +454,16 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
       {loading && (
         <div className="graph-loader-overlay card-glass">
           <span className="spinner"></span>
-          <h2>Constructing Synonym Network Graph...</h2>
-          <p>This may take a moment for large datasets.</p>
+          <h2>{t('graph.constructingGraph')}</h2>
+          <p>{t('graph.largeDatasetHelp')}</p>
         </div>
       )}
 
       {error && (
         <div className="graph-loader-overlay error-overlay card-glass">
-          <h2>Error rendering graph</h2>
+          <h2>{t('graph.errorTitle')}</h2>
           <p>{error}</p>
-          <button onClick={onBackToDashboard} className="btn btn-primary">Go Back</button>
+          <button onClick={onBackToDashboard} className="btn btn-primary">{t('graph.goBack')}</button>
         </div>
       )}
 
