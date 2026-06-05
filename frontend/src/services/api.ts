@@ -26,6 +26,18 @@ export interface AnalyzeResponse {
   wordSynonyms: Record<string, string[]>;
 }
 
+/**
+ * Returns common request headers, appending X-User-Id from localStorage if present
+ */
+function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  const userId = localStorage.getItem('synonym_link_uuid');
+  if (userId) {
+    headers['X-User-Id'] = userId;
+  }
+  return headers;
+}
+
 export const api = {
   /**
    * Add a manual synonym pair (A is synonym to B)
@@ -33,7 +45,7 @@ export const api = {
   async addSynonymPair(word1: string, word2: string): Promise<{ message: string }> {
     const response = await fetch(`${API_BASE_URL}/synonyms`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ word1, word2 }),
     });
 
@@ -49,7 +61,9 @@ export const api = {
    * Get all direct and transitive synonyms for a single word
    */
   async getSynonyms(word: string): Promise<string[]> {
-    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(word)}`);
+    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(word)}`, {
+      headers: getHeaders(),
+    });
     if (!response.ok) {
       throw new Error('Failed to retrieve synonyms.');
     }
@@ -62,7 +76,7 @@ export const api = {
   async analyzeSentence(sentence: string): Promise<AnalyzeResponse> {
     const response = await fetch(`${API_BASE_URL}/synonyms/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ sentence }),
     });
 
@@ -77,7 +91,9 @@ export const api = {
    * Fetch the complete synonym graph (nodes and links)
    */
   async getGraph(): Promise<GraphResponse> {
-    const response = await fetch(`${API_BASE_URL}/synonyms/graph`);
+    const response = await fetch(`${API_BASE_URL}/synonyms/graph`, {
+      headers: getHeaders(),
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch synonym graph.');
     }
@@ -90,6 +106,7 @@ export const api = {
   async seedExternal(): Promise<{ message: string; totalWords: number }> {
     const response = await fetch(`${API_BASE_URL}/synonyms/seed-external`, {
       method: 'POST',
+      headers: getHeaders(),
     });
 
     if (!response.ok) {

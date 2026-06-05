@@ -3,17 +3,61 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace SynonymsApp.Repositories
 {
     public class InMemorySynonymRepository : ISynonymRepository
     {
-        // Thread-safe dictionary representation of the adjacency list
-        // Using ConcurrentDictionary<string, byte> as a thread-safe hash set for values
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _adjacencyList = new(StringComparer.OrdinalIgnoreCase);
+        private readonly IHttpContextAccessor? _httpContextAccessor;
+
+        // Nested dictionary structure: UserId -> Word -> Set of Synonyms
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>> _userAdjacencyLists = new(StringComparer.OrdinalIgnoreCase);
 
         // Security rate limiter/limit to prevent memory/storage exhaustion through open seeding/adding APIs.
         private const int MaxUniqueWordsLimit = 5000;
+
+        public InMemorySynonymRepository(IHttpContextAccessor? httpContextAccessor = null)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private string GetCurrentUserId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext != null && httpContext.Request.Headers.TryGetValue("X-User-Id", out var userIdValues))
+            {
+                var userId = userIdValues.ToString();
+                if (!string.IsNullOrWhiteSpace(userId))
+                {
+                    return userId;
+                }
+            }
+            return "default";
+        }
+
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> GetOrCreateUserAdjacencyList(string userId)
+        {
+            return _userAdjacencyLists.GetOrAdd(userId, id =>
+            {
+                var newUserDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.OrdinalIgnoreCase);
+
+                // If it is a new user (not "default"), pre-seed it by copying the "default" user's data (if it exists)
+                if (!id.Equals("default", StringComparison.OrdinalIgnoreCase) && _userAdjacencyLists.TryGetValue("default", out var defaultDict))
+                {
+                    foreach (var kvp in defaultDict)
+                    {
+                        var wordSet = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var synonym in kvp.Value.Keys)
+                        {
+                            wordSet.TryAdd(synonym, 0);
+                        }
+                        newUserDict.TryAdd(kvp.Key, wordSet);
+                    }
+                }
+                return newUserDict;
+            });
+        }
 
         public Task AddPairAsync(string word1, string word2)
         {
@@ -31,18 +75,21 @@ namespace SynonymsApp.Repositories
                 return Task.CompletedTask;
             }
 
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
+
             // Check if adding this pair would exceed the limit of 5000 unique words.
             int newWordsCount = 0;
-            if (!_adjacencyList.ContainsKey(w1)) newWordsCount++;
-            if (!_adjacencyList.ContainsKey(w2)) newWordsCount++;
+            if (!userList.ContainsKey(w1)) newWordsCount++;
+            if (!userList.ContainsKey(w2)) newWordsCount++;
 
-            if (_adjacencyList.Count + newWordsCount > MaxUniqueWordsLimit)
+            if (userList.Count + newWordsCount > MaxUniqueWordsLimit)
             {
                 throw new InvalidOperationException($"Cannot add synonym pair. The database is limited to a maximum of {MaxUniqueWordsLimit} words for security reasons.");
             }
 
             // Add w2 to w1's set
-            _adjacencyList.AddOrUpdate(
+            userList.AddOrUpdate(
                 w1,
                 _ =>
                 {
@@ -58,7 +105,7 @@ namespace SynonymsApp.Repositories
             );
 
             // Add w1 to w2's set (bi-directional relationship)
-            _adjacencyList.AddOrUpdate(
+            userList.AddOrUpdate(
                 w2,
                 _ =>
                 {
@@ -84,8 +131,10 @@ namespace SynonymsApp.Repositories
             }
 
             var w = word.Trim().ToLowerInvariant();
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
 
-            if (_adjacencyList.TryGetValue(w, out var synonyms))
+            if (userList.TryGetValue(w, out var synonyms))
             {
                 return Task.FromResult<IEnumerable<string>>(synonyms.Keys.ToList());
             }
@@ -95,9 +144,11 @@ namespace SynonymsApp.Repositories
 
         public Task<IEnumerable<KeyValuePair<string, string>>> GetAllPairsAsync()
         {
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
             var pairs = new List<KeyValuePair<string, string>>();
 
-            foreach (var kvp in _adjacencyList)
+            foreach (var kvp in userList)
             {
                 var source = kvp.Key;
                 foreach (var target in kvp.Value.Keys)
@@ -116,7 +167,9 @@ namespace SynonymsApp.Repositories
 
         public Task<IEnumerable<string>> GetAllWordsAsync()
         {
-            return Task.FromResult<IEnumerable<string>>(_adjacencyList.Keys.ToList());
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
+            return Task.FromResult<IEnumerable<string>>(userList.Keys.ToList());
         }
     }
 }

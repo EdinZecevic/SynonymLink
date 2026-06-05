@@ -10,6 +10,8 @@ interface DashboardProps {
   renderAnalyzer: () => React.ReactNode; // Injected from step 9
   seedCount: number;
   setSeedCount: React.Dispatch<React.SetStateAction<number>>;
+  currentUser: string | null;
+  onResetSession: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -19,7 +21,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   toggleTheme,
   renderAnalyzer,
   seedCount,
-  setSeedCount
+  setSeedCount,
+  currentUser,
+  onResetSession
 }) => {
   // Add Pair Form State
   const [word1, setWord1] = useState('');
@@ -47,7 +51,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // External Seeding State
   const [seedLoading, setSeedLoading] = useState(false);
   const [seedSuccessMessage, setSeedSuccessMessage] = useState('');
-  const [hasSeeded, setHasSeeded] = useState(() => localStorage.getItem('synonyms_seeded') === 'true');
+  const [hasSeeded, setHasSeeded] = useState(() => {
+    const uuid = localStorage.getItem('synonym_link_uuid');
+    return uuid ? localStorage.getItem(`synonyms_seeded_${uuid}`) === 'true' : false;
+  });
 
   const isAlreadySeeded = seedCount > 100 || (hasSeeded && seedCount > 0);
 
@@ -122,7 +129,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setSeedCount(response.totalWords);
       setSeedSuccessMessage(`Successfully seeded! Loaded ${response.totalWords} unique words and relations.`);
       setHasSeeded(true);
-      localStorage.setItem('synonyms_seeded', 'true');
+      const uuid = localStorage.getItem('synonym_link_uuid');
+      if (uuid) {
+        localStorage.setItem(`synonyms_seeded_${uuid}`, 'true');
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'An unknown error occurred.';
       setSeedSuccessMessage(`Error seeding: ${errorMsg}`);
@@ -143,6 +153,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <Share2 className="logo-icon" />
             <span className="logo-text">Dashboard</span>
           </div>
+          {currentUser && (
+            <div className="session-badge card-glass">
+              <span className="user-dot"></span>
+              <span className="user-name" title={`UUID: ${localStorage.getItem('synonym_link_uuid')}`}>
+                Guest: <strong>{currentUser}</strong>
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="header-actions">
@@ -152,6 +170,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               Open Visual Graph ({seedCount} Nodes)
             </button>
           )}
+          <button onClick={onResetSession} className="btn btn-secondary btn-switch-session" title="Switch User / Start New Session">
+            Switch Session
+          </button>
           <button onClick={toggleTheme} className="theme-toggle-btn">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -669,6 +690,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             justify-content: space-between;
             width: 100%;
           }
+          .session-badge {
+            margin-left: 0;
+            justify-content: center;
+            width: 100%;
+          }
           .header-actions {
             justify-content: space-between;
             width: 100%;
@@ -680,6 +706,49 @@ export const Dashboard: React.FC<DashboardProps> = ({
             font-size: 13px;
             padding: 10px 14px;
           }
+        }
+
+        /* Session info badge */
+        .session-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background-color: var(--accent-soft);
+          border: 1px solid rgba(79, 70, 229, 0.2);
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          color: var(--text-primary);
+          margin-left: 8px;
+        }
+
+        .user-dot {
+          width: 8px;
+          height: 8px;
+          background-color: #22c55e;
+          border-radius: 50%;
+          box-shadow: 0 0 8px #22c55e;
+        }
+
+        .user-name strong {
+          color: var(--accent);
+          text-transform: capitalize;
+        }
+
+        .btn-switch-session {
+          font-size: 13px;
+          padding: 8px 14px;
+          font-weight: 600;
+          border-color: var(--border);
+          background-color: var(--bg-glass);
+          color: var(--text-secondary);
+          transition: all var(--transition-fast);
+        }
+
+        .btn-switch-session:hover {
+          background-color: var(--accent-soft);
+          border-color: var(--accent);
+          color: var(--accent);
         }
       `}</style>
     </div>
