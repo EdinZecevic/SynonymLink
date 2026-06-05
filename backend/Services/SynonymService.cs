@@ -189,6 +189,73 @@ namespace SynonymsApp.Services
             return allWords.Count();
         }
 
+        public async Task<DeletePreviewResponse> GetDeletePreviewAsync(string word)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return new DeletePreviewResponse();
+            }
+
+            var target = word.Trim().ToLowerInvariant();
+            var firstConnections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var secondConnections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Get direct synonyms (distance 1)
+            var direct = await _repository.GetDirectSynonymsAsync(target);
+            foreach (var w1 in direct)
+            {
+                if (!w1.Equals(target, StringComparison.OrdinalIgnoreCase))
+                {
+                    firstConnections.Add(w1);
+                }
+            }
+
+            // Get connections of connections (distance 2)
+            foreach (var w1 in firstConnections)
+            {
+                var neighborsOfW1 = await _repository.GetDirectSynonymsAsync(w1);
+                foreach (var w2 in neighborsOfW1)
+                {
+                    if (!w2.Equals(target, StringComparison.OrdinalIgnoreCase) && 
+                        !firstConnections.Contains(w2))
+                    {
+                        secondConnections.Add(w2);
+                    }
+                }
+            }
+
+            return new DeletePreviewResponse
+            {
+                TargetWord = target,
+                FirstConnections = firstConnections.OrderBy(w => w).ToList(),
+                SecondConnections = secondConnections.OrderBy(w => w).ToList()
+            };
+        }
+
+        public async Task DeleteWordAndConnectionsAsync(string word, string mode)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return;
+            }
+
+            var target = word.Trim().ToLowerInvariant();
+
+            if (string.Equals(mode, "single", StringComparison.OrdinalIgnoreCase))
+            {
+                await _repository.DeleteWordsAsync(new[] { target });
+            }
+            else
+            {
+                var preview = await GetDeletePreviewAsync(target);
+                var wordsToDelete = new List<string> { target };
+                wordsToDelete.AddRange(preview.FirstConnections);
+                wordsToDelete.AddRange(preview.SecondConnections);
+
+                await _repository.DeleteWordsAsync(wordsToDelete);
+            }
+        }
+
         private string CleanWord(string word)
         {
             if (string.IsNullOrEmpty(word)) return string.Empty;

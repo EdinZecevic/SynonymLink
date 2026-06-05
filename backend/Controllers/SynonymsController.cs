@@ -91,5 +91,37 @@ namespace SynonymsApp.Controllers
                 return StatusCode(500, new { Message = "Error occurred during seeding.", Error = ex.Message });
             }
         }
+
+        [HttpGet("{word}/delete-preview")]
+        public async Task<IActionResult> GetDeletePreview(string word)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return BadRequest(new { Message = "Word parameter cannot be empty." });
+            }
+
+            var preview = await _synonymService.GetDeletePreviewAsync(word);
+            return Ok(preview);
+        }
+
+        [HttpDelete("{word}")]
+        public async Task<IActionResult> DeleteWord(string word, [FromQuery] string mode = "cascade")
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return BadRequest(new { Message = "Word parameter cannot be empty." });
+            }
+
+            try
+            {
+                await _synonymService.DeleteWordAndConnectionsAsync(word, mode);
+                return Ok(new { Message = $"Word '{word}' deleted successfully using mode '{mode}'." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error occurred during deletion.", Error = ex.Message });
+            }
+        }
     }
 }
+

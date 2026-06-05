@@ -11,5 +11,7 @@ namespace SynonymsApp.Services
         Task<GraphResponse> GetSynonymGraphAsync();
         Task<AnalyzeResponse> AnalyzeSentenceAsync(string sentence);
         Task<int> SeedFromExternalApiAsync();
+        Task<DeletePreviewResponse> GetDeletePreviewAsync(string word);
+        Task DeleteWordAndConnectionsAsync(string word, string mode);
     }
 }

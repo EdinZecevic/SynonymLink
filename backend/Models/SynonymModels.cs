@@ -35,4 +35,11 @@ namespace SynonymsApp.Models
     {
         public Dictionary<string, List<string>> WordSynonyms { get; set; } = new();
     }
+
+    public class DeletePreviewResponse
+    {
+        public string TargetWord { get; set; } = string.Empty;
+        public List<string> FirstConnections { get; set; } = new();
+        public List<string> SecondConnections { get; set; } = new();
+    }
 }

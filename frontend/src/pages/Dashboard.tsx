@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Share2, Plus, Search, Moon, Sun, ArrowLeft, Database, Sparkles, BookOpen } from 'lucide-react';
+import { Share2, Plus, Search, Moon, Sun, ArrowLeft, Database, Sparkles, BookOpen, X } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../services/api';
+import { DeleteWarningModal } from '../components/DeleteWarningModal';
+
 
 interface DashboardProps {
   onOpenGraph: () => void;
@@ -41,6 +43,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [visibleCount, setVisibleCount] = useState(50);
+
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [wordToDelete, setWordToDelete] = useState('');
+  const [deletePreview, setDeletePreview] = useState<{ targetWord: string; firstConnections: string[]; secondConnections: string[] } | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'single' | 'cascade'>('single');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Infinite Scroll scroll handler
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -122,6 +132,67 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setSearchLoading(false);
     }
   };
+
+  // Open Delete Modal Handler
+  const handleOpenDeleteModal = async (word: string) => {
+    setWordToDelete(word);
+    setDeleteError('');
+    setDeletePreview(null);
+    setDeleteMode('single');
+    setIsDeleteModalOpen(true);
+    try {
+      const preview = await api.getDeletePreview(word);
+      setDeletePreview(preview);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorGeneral');
+      setDeleteError(errorMsg);
+    }
+  };
+
+  // Confirm Delete Handler
+  const handleConfirmDelete = async () => {
+    if (!wordToDelete) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await api.deleteWord(wordToDelete, deleteMode);
+      
+      // State cleanup / updates
+      if (wordToDelete.toLowerCase() === searchQuery.toLowerCase()) {
+        // If we deleted the searched word itself, clear search
+        setSearchQuery('');
+        setSearchResults([]);
+      } else {
+        // If we deleted a synonym, refresh search to show updated list
+        if (searchQuery) {
+          try {
+            const results = await api.getSynonyms(searchQuery);
+            setSearchResults(results);
+          } catch {
+            setSearchResults([]);
+          }
+        }
+      }
+
+      // Refresh the graph count on Dashboard
+      try {
+        const graph = await api.getGraph();
+        setSeedCount(graph.nodes.length);
+      } catch (err) {
+        console.error('Error refreshing graph count:', err);
+      }
+
+      setIsDeleteModalOpen(false);
+      setDeletePreview(null);
+      setWordToDelete('');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorGeneral');
+      setDeleteError(errorMsg);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
 
   // External Seeding handler
   const handleSeedExternal = async () => {
@@ -258,7 +329,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {searchResults.length > 0 && (
               <div className="search-results animate-fade-in">
                 <div className="results-header">
-                  <h3>{t('dashboard.synonymsFor', { query: searchQuery })}</h3>
+                  <h3 className="results-title-with-delete">
+                    {t('dashboard.synonymsFor', { query: '' }).replace(/""/g, '').replace(/:$/, '').trim()}
+                    <strong style={{ marginLeft: '4px' }}>&quot;{searchQuery}&quot;</strong>
+                    <button
+                      type="button"
+                      className="btn-delete-word"
+                      title={t('dashboard.deleteBtnTooltip', { word: searchQuery })}
+                      onClick={() => handleOpenDeleteModal(searchQuery)}
+                    >
+                      <X size={14} />
+                    </button>
+                    :
+                  </h3>
                   <span className="results-counter">
                     {t('dashboard.loadedCounter', { visible: Math.min(visibleCount, searchResults.length), total: searchResults.length })}
                   </span>
@@ -266,8 +349,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="results-list-container" onScroll={handleScroll}>
                   <div className="results-list">
                     {searchResults.slice(0, visibleCount).map((word, idx) => (
-                      <span key={idx} className="result-badge animate-fade-in" style={{ animationDelay: `${(idx % 50) * 15}ms` }}>
+                      <span key={idx} className="result-badge deleteable-badge animate-fade-in" style={{ animationDelay: `${(idx % 50) * 15}ms` }}>
                         {word}
+                        <button
+                          type="button"
+                          className="btn-delete-badge"
+                          title={t('dashboard.deleteBtnTooltip', { word })}
+                          onClick={() => handleOpenDeleteModal(word)}
+                        >
+                          <X size={12} />
+                        </button>
                       </span>
                     ))}
                   </div>
@@ -334,6 +425,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {renderAnalyzer()}
         </section>
       </main>
+
+      <DeleteWarningModal
+        isOpen={isDeleteModalOpen}
+        word={wordToDelete}
+        preview={deletePreview}
+        mode={deleteMode}
+        loading={deleteLoading}
+        error={deleteError}
+        setMode={setDeleteMode}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setDeletePreview(null);
+          setWordToDelete('');
+        }}
+        onConfirm={handleConfirmDelete}
+      />
+
 
       {/* Local Dashboard CSS styling */}
       <style>{`
@@ -754,6 +862,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
           background-color: var(--accent-soft);
           border-color: var(--accent);
           color: var(--accent);
+        }
+
+        /* Delete Buttons */
+        .results-title-with-delete {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .btn-delete-word {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2px;
+          border-radius: 4px;
+          transition: all var(--transition-fast);
+        }
+
+        .btn-delete-word:hover {
+          color: #ef4444;
+          background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        .deleteable-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding-right: 8px !important;
+        }
+
+        .btn-delete-badge {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1px;
+          border-radius: 2px;
+          transition: all var(--transition-fast);
+        }
+
+        .btn-delete-badge:hover {
+          color: #ef4444;
+          background-color: rgba(239, 68, 68, 0.15);
         }
       `}</style>
     </div>

@@ -171,5 +171,37 @@ namespace SynonymsApp.Repositories
             var userList = GetOrCreateUserAdjacencyList(userId);
             return Task.FromResult<IEnumerable<string>>(userList.Keys.ToList());
         }
+
+        public Task DeleteWordsAsync(IEnumerable<string> words)
+        {
+            var wordsToDelete = new HashSet<string>(words, StringComparer.OrdinalIgnoreCase);
+            if (wordsToDelete.Count == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
+
+            foreach (var word in wordsToDelete)
+            {
+                // Remove this word from other words' synonym lists
+                if (userList.TryGetValue(word, out var synonyms))
+                {
+                    foreach (var synonym in synonyms.Keys)
+                    {
+                        if (userList.TryGetValue(synonym, out var neighborSynonyms))
+                        {
+                            neighborSynonyms.TryRemove(word, out _);
+                        }
+                    }
+                }
+                
+                // Remove the word itself
+                userList.TryRemove(word, out _);
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

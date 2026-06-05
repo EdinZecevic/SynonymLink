@@ -198,5 +198,114 @@ namespace SynonymsApp.Tests
             // since it introduces no new words to the database
             await _service.AddSynonymPairAsync("worda0", "wordb1");
         }
+
+        [Fact]
+        public async Task GetDeletePreview_ShouldIncludeFirstAndSecondLevelConnectionsOnly()
+        {
+            // Arrange: target - B (1st) - C (2nd) - D (3rd)
+            await _service.AddSynonymPairAsync("target", "B");
+            await _service.AddSynonymPairAsync("B", "C");
+            await _service.AddSynonymPairAsync("C", "D");
+
+            // Act
+            var preview = await _service.GetDeletePreviewAsync("target");
+
+            // Assert
+            Assert.Equal("target", preview.TargetWord);
+            
+            // First level: B
+            Assert.Single(preview.FirstConnections);
+            Assert.Contains("b", preview.FirstConnections);
+
+            // Second level: C
+            Assert.Single(preview.SecondConnections);
+            Assert.Contains("c", preview.SecondConnections);
+
+            // D should not be in preview (it is 3rd level)
+            Assert.DoesNotContain("d", preview.FirstConnections);
+            Assert.DoesNotContain("d", preview.SecondConnections);
+        }
+
+        [Fact]
+        public async Task GetDeletePreview_ShouldHandleCircularAndMultiplePaths()
+        {
+            // Arrange circular and multi-path graph:
+            // target - B
+            // target - C
+            // B - C (circular)
+            // B - D
+            await _service.AddSynonymPairAsync("target", "B");
+            await _service.AddSynonymPairAsync("target", "C");
+            await _service.AddSynonymPairAsync("B", "C");
+            await _service.AddSynonymPairAsync("B", "D");
+
+            // Act
+            var preview = await _service.GetDeletePreviewAsync("target");
+
+            // Assert
+            Assert.Equal("target", preview.TargetWord);
+            
+            // First level: B, C
+            Assert.Equal(2, preview.FirstConnections.Count);
+            Assert.Contains("b", preview.FirstConnections);
+            Assert.Contains("c", preview.FirstConnections);
+
+            // Second level: D (B is connected to D. C is connected to B, but B is already in 1st level, so only D remains)
+            Assert.Single(preview.SecondConnections);
+            Assert.Contains("d", preview.SecondConnections);
+        }
+
+        [Fact]
+        public async Task DeleteWord_SingleMode_ShouldOnlyRemoveTargetWordAndSeverConnections()
+        {
+            // Arrange: A - B - C
+            await _service.AddSynonymPairAsync("A", "B");
+            await _service.AddSynonymPairAsync("B", "C");
+
+            // Act: delete B in single mode
+            await _service.DeleteWordAndConnectionsAsync("B", "single");
+
+            // Assert: B is removed, but A and C remain (though they are no longer connected because B was the bridge)
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("b", allWords);
+            Assert.Contains("a", allWords);
+            Assert.Contains("c", allWords);
+
+            // A's direct synonyms should be empty
+            var synonymsForA = await _repository.GetDirectSynonymsAsync("a");
+            Assert.Empty(synonymsForA);
+
+            // C's direct synonyms should be empty
+            var synonymsForC = await _repository.GetDirectSynonymsAsync("c");
+            Assert.Empty(synonymsForC);
+        }
+
+        [Fact]
+        public async Task DeleteWord_CascadeMode_ShouldDeleteTargetAndFirstAndSecondLevelConnections()
+        {
+            // Arrange: target - B (1st) - C (2nd) - D (3rd) - E (4th)
+            await _service.AddSynonymPairAsync("target", "B");
+            await _service.AddSynonymPairAsync("B", "C");
+            await _service.AddSynonymPairAsync("C", "D");
+            await _service.AddSynonymPairAsync("D", "E");
+
+            // Act: delete target in cascade mode
+            await _service.DeleteWordAndConnectionsAsync("target", "cascade");
+
+            // Assert: target, B, C are removed. D, E remain.
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("target", allWords);
+            Assert.DoesNotContain("b", allWords);
+            Assert.DoesNotContain("c", allWords);
+            Assert.Contains("d", allWords);
+            Assert.Contains("e", allWords);
+
+            // D - E connection should still exist
+            var synonymsForD = await _repository.GetDirectSynonymsAsync("d");
+            Assert.Contains("e", synonymsForD);
+
+            var synonymsForE = await _repository.GetDirectSynonymsAsync("e");
+            Assert.Contains("d", synonymsForE);
+        }
     }
 }

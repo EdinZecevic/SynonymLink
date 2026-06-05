@@ -9,5 +9,6 @@ namespace SynonymsApp.Repositories
         Task<IEnumerable<string>> GetDirectSynonymsAsync(string word);
         Task<IEnumerable<KeyValuePair<string, string>>> GetAllPairsAsync();
         Task<IEnumerable<string>> GetAllWordsAsync();
+        Task DeleteWordsAsync(IEnumerable<string> words);
     }
 }

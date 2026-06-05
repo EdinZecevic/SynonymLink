@@ -26,6 +26,12 @@ export interface AnalyzeResponse {
   wordSynonyms: Record<string, string[]>;
 }
 
+export interface DeletePreviewResponse {
+  targetWord: string;
+  firstConnections: string[];
+  secondConnections: string[];
+}
+
 /**
  * Returns common request headers, appending X-User-Id from localStorage if present
  */
@@ -116,4 +122,33 @@ export const api = {
 
     return response.json();
   },
+
+  /**
+   * Get preview of what will be deleted
+   */
+  async getDeletePreview(word: string): Promise<DeletePreviewResponse> {
+    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(word)}/delete-preview`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch delete preview.');
+    }
+    return response.json();
+  },
+
+  /**
+   * Delete a word and its connections based on mode (single or cascade)
+   */
+  async deleteWord(word: string, mode: 'single' | 'cascade'): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(word)}?mode=${mode}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to delete word.');
+    }
+    return response.json();
+  },
 };
+
