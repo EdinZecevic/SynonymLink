@@ -161,15 +161,30 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         const isSelected = selectedNodeRef.current?.id === node.id;
         const isHovered = hoveredNodeRef.current?.id === node.id;
 
+        // Adjust node size: normal is 5, selected is 9, hovered is 13 (prominent scale-up)
+        const radius = isHovered ? 13 : (isSelected ? 9 : 5);
+
+        // Draw translucent outer glowing halo for hovered node
+        if (isHovered) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
+          ctx.fillStyle = `hsla(${(node.group * 137.5) % 360}, 100%, 65%, 0.35)`;
+          ctx.fill();
+          ctx.restore();
+        }
+
         ctx.beginPath();
-        // Adjust node size based on importance (degree) or selection
-        const radius = isSelected ? 8 : (isHovered ? 7 : 5);
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
 
         // Map cluster groups to beautiful HSL colors
+        // For hovered, we boost saturation and lightness to make it glow
         const baseColor = `hsl(${(node.group * 137.5) % 360}, 70%, 55%)`;
+        const glowColor = `hsl(${(node.group * 137.5) % 360}, 100%, 65%)`;
 
-        if (activeComponentGroup !== null) {
+        if (isHovered) {
+          ctx.fillStyle = glowColor;
+        } else if (activeComponentGroup !== null) {
           ctx.fillStyle = isHighlight ? baseColor : 'rgba(100, 116, 139, 0.15)';
         } else {
           ctx.fillStyle = baseColor;
@@ -179,7 +194,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
 
         // Node outline for selected/hovered nodes
         if (isSelected || isHovered) {
-          ctx.lineWidth = 2;
+          ctx.lineWidth = isHovered ? 3 : 2;
           ctx.strokeStyle = '#ffffff';
           ctx.stroke();
         }
@@ -188,16 +203,58 @@ export const GraphView: React.FC<GraphViewProps> = ({ onBackToDashboard }) => {
         const shouldShowLabel = transform.k > 1.2 || isSelected || isHovered || isHighlight || nodes.length < 50;
 
         if (shouldShowLabel) {
-          ctx.font = isSelected || isHovered ? 'bold 11px Inter, sans-serif' : '9px Inter, sans-serif';
+          const isProminentLabel = isHovered || isSelected;
+          ctx.font = isProminentLabel
+            ? (isHovered ? 'bold 13px Inter, sans-serif' : 'bold 11px Inter, sans-serif')
+            : '9px Inter, sans-serif';
           
-          if (activeComponentGroup !== null) {
-            ctx.fillStyle = isHighlight ? 'var(--text-primary)' : 'rgba(100, 116, 139, 0.2)';
-          } else {
-            ctx.fillStyle = 'var(--text-primary)';
-          }
+          const textY = node.y - (radius + 6);
 
-          ctx.textAlign = 'center';
-          ctx.fillText(node.id, node.x, node.y - (radius + 4));
+          if (isProminentLabel) {
+            // Draw background badge for prominent text to prevent readability issues in dense graphs
+            const textWidth = ctx.measureText(node.id).width;
+            const paddingX = 8;
+            const paddingY = 4;
+            const rectWidth = textWidth + paddingX * 2;
+            const rectHeight = (isHovered ? 14 : 12) + paddingY * 2;
+            const rectX = node.x - rectWidth / 2;
+            const rectY = textY - rectHeight / 2 - 2;
+
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(rectX, rectY, rectWidth, rectHeight, 6);
+            } else {
+              ctx.rect(rectX, rectY, rectWidth, rectHeight);
+            }
+
+            // Dark styling for hovered, theme standard for selected
+            ctx.fillStyle = isHovered ? 'rgba(15, 23, 42, 0.95)' : 'var(--bg-secondary)';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+            ctx.shadowBlur = 6;
+            ctx.fill();
+
+            ctx.strokeStyle = isHovered ? glowColor : 'var(--border)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw text centered inside the badge
+            ctx.fillStyle = isHovered ? '#ffffff' : 'var(--text-primary)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(node.id, node.x, rectY + rectHeight / 2);
+          } else {
+            // Simple text rendering for normal nodes
+            if (activeComponentGroup !== null) {
+              ctx.fillStyle = isHighlight ? 'var(--text-primary)' : 'rgba(100, 116, 139, 0.2)';
+            } else {
+              ctx.fillStyle = 'var(--text-primary)';
+            }
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(node.id, node.x, textY);
+          }
         }
       });
 
