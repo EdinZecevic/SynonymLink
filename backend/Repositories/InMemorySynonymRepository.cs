@@ -203,5 +203,113 @@ namespace SynonymsApp.Repositories
 
             return Task.CompletedTask;
         }
+
+        public Task RenameWordAsync(string oldWord, string newWord)
+        {
+            if (string.IsNullOrWhiteSpace(oldWord) || string.IsNullOrWhiteSpace(newWord))
+            {
+                throw new ArgumentException("Both old word and new word must be provided.");
+            }
+
+            var oldW = oldWord.Trim().ToLowerInvariant();
+            var newW = newWord.Trim().ToLowerInvariant();
+
+            if (oldW == newW)
+            {
+                return Task.CompletedTask;
+            }
+
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
+
+            if (!userList.TryGetValue(oldW, out var oldSynonyms))
+            {
+                throw new KeyNotFoundException($"Word '{oldWord}' does not exist.");
+            }
+
+            // Step 1: Update all words that have oldW as a synonym
+            foreach (var synonym in oldSynonyms.Keys)
+            {
+                if (synonym.Equals(newW, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Skip self-referencing updates
+                    continue;
+                }
+
+                if (userList.TryGetValue(synonym, out var neighborSynonyms))
+                {
+                    neighborSynonyms.TryRemove(oldW, out _);
+                    neighborSynonyms.TryAdd(newW, 0);
+                }
+            }
+
+            // Step 2: Add or merge synonyms into newW's list
+            userList.AddOrUpdate(
+                newW,
+                k =>
+                {
+                    var set = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var synonym in oldSynonyms.Keys)
+                    {
+                        if (!synonym.Equals(newW, StringComparison.OrdinalIgnoreCase))
+                        {
+                            set.TryAdd(synonym, 0);
+                        }
+                    }
+                    return set;
+                },
+                (k, existingSet) =>
+                {
+                    foreach (var synonym in oldSynonyms.Keys)
+                    {
+                        if (!synonym.Equals(newW, StringComparison.OrdinalIgnoreCase))
+                        {
+                            existingSet.TryAdd(synonym, 0);
+                        }
+                    }
+                    existingSet.TryRemove(oldW, out _);
+                    return existingSet;
+                }
+            );
+
+            // Step 3: Remove oldW from adjacency list
+            userList.TryRemove(oldW, out _);
+
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteRelationshipAsync(string word1, string word2)
+        {
+            if (string.IsNullOrWhiteSpace(word1) || string.IsNullOrWhiteSpace(word2))
+            {
+                return Task.CompletedTask;
+            }
+
+            var w1 = word1.Trim().ToLowerInvariant();
+            var w2 = word2.Trim().ToLowerInvariant();
+
+            var userId = GetCurrentUserId();
+            var userList = GetOrCreateUserAdjacencyList(userId);
+
+            if (userList.TryGetValue(w1, out var w1Synonyms))
+            {
+                w1Synonyms.TryRemove(w2, out _);
+                if (w1Synonyms.IsEmpty)
+                {
+                    userList.TryRemove(w1, out _);
+                }
+            }
+
+            if (userList.TryGetValue(w2, out var w2Synonyms))
+            {
+                w2Synonyms.TryRemove(w1, out _);
+                if (w2Synonyms.IsEmpty)
+                {
+                    userList.TryRemove(w2, out _);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

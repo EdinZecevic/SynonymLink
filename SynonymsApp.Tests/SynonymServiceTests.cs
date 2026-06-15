@@ -307,5 +307,140 @@ namespace SynonymsApp.Tests
             var synonymsForE = await _repository.GetDirectSynonymsAsync("e");
             Assert.Contains("d", synonymsForE);
         }
+
+        [Fact]
+        public async Task RenameWord_ShouldModifyWordAndPreserveSynonyms()
+        {
+            // Arrange: clean - wash
+            await _service.AddSynonymPairAsync("clean", "wash");
+
+            // Act: rename "clean" to "purify"
+            await _repository.RenameWordAsync("clean", "purify");
+
+            // Assert
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("clean", allWords);
+            Assert.Contains("purify", allWords);
+            Assert.Contains("wash", allWords);
+
+            // Check synonyms are preserved and bidirectional
+            var synonymsForPurify = await _service.GetTransitiveSynonymsAsync("purify");
+            var synonymsForWash = await _service.GetTransitiveSynonymsAsync("wash");
+
+            Assert.Contains("wash", synonymsForPurify);
+            Assert.Contains("purify", synonymsForWash);
+            Assert.DoesNotContain("clean", synonymsForWash);
+        }
+
+        [Fact]
+        public async Task RenameWord_ToExistingWord_ShouldMergeSynonyms()
+        {
+            // Arrange: A - B, C - D
+            await _service.AddSynonymPairAsync("A", "B");
+            await _service.AddSynonymPairAsync("C", "D");
+
+            // Act: rename "A" to "C" (merging them)
+            await _repository.RenameWordAsync("A", "C");
+
+            // Assert
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("a", allWords);
+            Assert.Contains("c", allWords);
+
+            // C's transitives should now resolve to B and D
+            var synonymsForC = (await _service.GetTransitiveSynonymsAsync("C")).ToList();
+            Assert.Contains("b", synonymsForC);
+            Assert.Contains("d", synonymsForC);
+            Assert.Equal(2, synonymsForC.Count);
+        }
+
+        [Fact]
+        public async Task RenameWord_ToItsSynonym_ShouldHandleCleanly()
+        {
+            // Arrange: A - B
+            await _service.AddSynonymPairAsync("A", "B");
+
+            // Act: rename "A" to "B" (already a synonym)
+            await _repository.RenameWordAsync("A", "B");
+
+            // Assert
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("a", allWords);
+            Assert.Single(allWords);
+            Assert.Contains("b", allWords);
+
+            // B should have no synonyms now (as "A" is gone and B can't be synonym of itself)
+            var synonymsForB = await _service.GetTransitiveSynonymsAsync("B");
+            Assert.Empty(synonymsForB);
+        }
+
+        [Fact]
+        public async Task RenameWord_NonExistent_ShouldThrowKeyNotFoundException()
+        {
+            // Act & Assert
+            await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
+            {
+                await _repository.RenameWordAsync("nonexistent", "newname");
+            });
+        }
+
+        [Fact]
+        public async Task DeleteRelationship_ShouldSeverLinkAndRemoveIsolatedWords()
+        {
+            // Arrange: A - B (only pair)
+            await _service.AddSynonymPairAsync("A", "B");
+
+            // Act: delete relationship
+            await _service.DeleteRelationshipAsync("A", "B");
+
+            // Assert: both A and B have no other synonyms, so they should be completely removed
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.Empty(allWords);
+        }
+
+        [Fact]
+        public async Task DeleteRelationship_ShouldSeverLinkAndKeepWordsWithOtherConnections()
+        {
+            // Arrange: A - B - C
+            await _service.AddSynonymPairAsync("A", "B");
+            await _service.AddSynonymPairAsync("B", "C");
+
+            // Act: delete relationship between A and B
+            await _service.DeleteRelationshipAsync("A", "B");
+
+            // Assert:
+            // A has no other connections, so it should be removed.
+            // B and C are still connected, so they should be preserved.
+            var allWords = (await _repository.GetAllWordsAsync()).ToList();
+            Assert.DoesNotContain("a", allWords);
+            Assert.Contains("b", allWords);
+            Assert.Contains("c", allWords);
+
+            var synonymsForB = (await _service.GetTransitiveSynonymsAsync("B")).ToList();
+            Assert.Single(synonymsForB);
+            Assert.Contains("c", synonymsForB);
+        }
+
+        [Fact]
+        public async Task GetDirectSynonyms_ShouldOnlyReturnImmediateNeighbors()
+        {
+            // Arrange: A - B - C
+            await _service.AddSynonymPairAsync("A", "B");
+            await _service.AddSynonymPairAsync("B", "C");
+
+            // Act: fetch direct for A
+            var directForA = (await _service.GetDirectSynonymsAsync("A")).ToList();
+            var transitiveForA = (await _service.GetTransitiveSynonymsAsync("A")).ToList();
+
+            // Assert:
+            // Direct for A should only contain B.
+            // Transitive for A contains B and C.
+            Assert.Single(directForA);
+            Assert.Contains("b", directForA);
+
+            Assert.Equal(2, transitiveForA.Count);
+            Assert.Contains("b", transitiveForA);
+            Assert.Contains("c", transitiveForA);
+        }
     }
 }

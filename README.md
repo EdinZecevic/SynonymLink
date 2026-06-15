@@ -22,6 +22,8 @@ The application features a clean architecture **.NET 8 Web API** backend and a m
 9. **Automated Quality Hooks:** Enforces code style checks during commit and runs test suites before pushes.
 10. **Pull Request Quality Gates:** Automatically validates frontend builds, styles, and backend tests on every pull request.
 11. **Automated Dependency PRs:** Checks for outdated libraries weekly to open pull requests with upgrades automatically.
+12. **Word Renaming:** Enables changing the text of any word while preserving and merging all of its synonym connections automatically.
+13. **Synonym Connection Deletion:** Allows severing the direct synonym relationship between two words, with automatic cleanup of isolated words.
 
 ---
 
@@ -107,12 +109,14 @@ Open your browser at `http://localhost:5173` to explore the app.
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/api/synonyms` | Add a synonym pair. JSON body: `{ "word1": "...", "word2": "..." }` |
-| `GET` | `/api/synonyms/{word}` | Look up all transitive synonyms for a single word. |
+| `GET` | `/api/synonyms/{word}` | Look up all transitive synonyms for a single word (accepts optional query parameter `directOnly`). |
 | `POST` | `/api/synonyms/analyze` | Split a sentence and lookup synonyms for each word. JSON body: `{ "sentence": "..." }` |
 | `GET` | `/api/synonyms/graph` | Retrieve the complete graph structured with color groups for network rendering. |
 | `POST` | `/api/synonyms/seed-external` | Seed 1,000+ words from the Datamuse API. |
 | `GET` | `/api/synonyms/{word}/delete-preview` | Get a preview of cascading connection deletions before performing a delete. |
+| `PUT` | `/api/synonyms/{word}` | Rename a word. JSON body: `{ "newWord": "..." }` |
 | `DELETE` | `/api/synonyms/{word}` | Delete a word and its connections (optional query parameter `mode` defaults to "cascade"). |
+| `DELETE` | `/api/synonyms/relationship` | Delete a direct relationship between two synonyms. Query parameters: `word1` and `word2`. |
 
 ---
 

@@ -66,8 +66,9 @@ export const api = {
   /**
    * Get all direct and transitive synonyms for a single word
    */
-  async getSynonyms(word: string): Promise<string[]> {
-    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(word)}`, {
+  async getSynonyms(word: string, directOnly?: boolean): Promise<string[]> {
+    const url = `${API_BASE_URL}/synonyms/${encodeURIComponent(word)}${directOnly ? '?directOnly=true' : ''}`;
+    const response = await fetch(url, {
       headers: getHeaders(),
     });
     if (!response.ok) {
@@ -148,6 +149,41 @@ export const api = {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || 'Failed to delete word.');
     }
+    return response.json();
+  },
+
+  /**
+   * Rename a word while preserving its connections
+   */
+  async renameWord(oldWord: string, newWord: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/synonyms/${encodeURIComponent(oldWord)}`, {
+      method: 'PUT',
+      headers: getHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ newWord }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to rename word.');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Delete synonym connection between two words
+   */
+  async deleteRelationship(word1: string, word2: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/synonyms/relationship?word1=${encodeURIComponent(word1)}&word2=${encodeURIComponent(word2)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to delete synonym connection.');
+    }
+
     return response.json();
   },
 };

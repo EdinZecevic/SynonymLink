@@ -42,4 +42,9 @@ namespace SynonymsApp.Models
         public List<string> FirstConnections { get; set; } = new();
         public List<string> SecondConnections { get; set; } = new();
     }
+
+    public class RenameWordRequest
+    {
+        public string NewWord { get; set; } = string.Empty;
+    }
 }

@@ -10,5 +10,7 @@ namespace SynonymsApp.Repositories
         Task<IEnumerable<KeyValuePair<string, string>>> GetAllPairsAsync();
         Task<IEnumerable<string>> GetAllWordsAsync();
         Task DeleteWordsAsync(IEnumerable<string> words);
+        Task RenameWordAsync(string oldWord, string newWord);
+        Task DeleteRelationshipAsync(string word1, string word2);
     }
 }

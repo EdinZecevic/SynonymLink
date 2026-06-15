@@ -256,6 +256,25 @@ namespace SynonymsApp.Services
             }
         }
 
+        public async Task RenameWordAsync(string oldWord, string newWord)
+        {
+            await _repository.RenameWordAsync(oldWord, newWord);
+        }
+
+        public async Task DeleteRelationshipAsync(string word1, string word2)
+        {
+            await _repository.DeleteRelationshipAsync(word1, word2);
+        }
+
+        public async Task<IEnumerable<string>> GetDirectSynonymsAsync(string word)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return Array.Empty<string>();
+            }
+            return await _repository.GetDirectSynonymsAsync(word.Trim().ToLowerInvariant());
+        }
+
         private string CleanWord(string word)
         {
             if (string.IsNullOrEmpty(word)) return string.Empty;

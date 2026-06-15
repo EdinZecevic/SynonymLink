@@ -44,11 +44,17 @@ namespace SynonymsApp.Controllers
         }
 
         [HttpGet("{word}")]
-        public async Task<IActionResult> GetSynonyms(string word)
+        public async Task<IActionResult> GetSynonyms(string word, [FromQuery] bool directOnly = false)
         {
             if (string.IsNullOrWhiteSpace(word))
             {
                 return BadRequest(new { Message = "Word parameter cannot be empty." });
+            }
+
+            if (directOnly)
+            {
+                var directSynonyms = await _synonymService.GetDirectSynonymsAsync(word);
+                return Ok(directSynonyms);
             }
 
             var synonyms = await _synonymService.GetTransitiveSynonymsAsync(word);
@@ -104,6 +110,44 @@ namespace SynonymsApp.Controllers
             return Ok(preview);
         }
 
+        [HttpPut("{word}")]
+        public async Task<IActionResult> RenameWord(string word, [FromBody] RenameWordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return BadRequest(new { Message = "Word parameter cannot be empty." });
+            }
+
+            if (request == null || string.IsNullOrWhiteSpace(request.NewWord))
+            {
+                return BadRequest(new { Message = "New word must be provided." });
+            }
+
+            var trimmedNewWord = request.NewWord.Trim();
+            if (word.Trim().Equals(trimmedNewWord, StringComparison.OrdinalIgnoreCase))
+            {
+                return Ok(new { Message = "The new word is the same as the old word." });
+            }
+
+            try
+            {
+                await _synonymService.RenameWordAsync(word, trimmedNewWord);
+                return Ok(new { Message = $"Word '{word}' was successfully renamed to '{trimmedNewWord}'." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error occurred during renaming.", Error = ex.Message });
+            }
+        }
+
         [HttpDelete("{word}")]
         public async Task<IActionResult> DeleteWord(string word, [FromQuery] string mode = "cascade")
         {
@@ -120,6 +164,25 @@ namespace SynonymsApp.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { Message = "Error occurred during deletion.", Error = ex.Message });
+            }
+        }
+
+        [HttpDelete("relationship")]
+        public async Task<IActionResult> DeleteRelationship([FromQuery] string word1, [FromQuery] string word2)
+        {
+            if (string.IsNullOrWhiteSpace(word1) || string.IsNullOrWhiteSpace(word2))
+            {
+                return BadRequest(new { Message = "Both word1 and word2 must be provided." });
+            }
+
+            try
+            {
+                await _synonymService.DeleteRelationshipAsync(word1, word2);
+                return Ok(new { Message = $"Relationship between '{word1}' and '{word2}' deleted successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error occurred during relationship deletion.", Error = ex.Message });
             }
         }
     }

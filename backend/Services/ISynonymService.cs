@@ -13,5 +13,8 @@ namespace SynonymsApp.Services
         Task<int> SeedFromExternalApiAsync();
         Task<DeletePreviewResponse> GetDeletePreviewAsync(string word);
         Task DeleteWordAndConnectionsAsync(string word, string mode);
+        Task RenameWordAsync(string oldWord, string newWord);
+        Task DeleteRelationshipAsync(string word1, string word2);
+        Task<IEnumerable<string>> GetDirectSynonymsAsync(string word);
     }
 }

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Share2, Plus, Search, Moon, Sun, ArrowLeft, Database, Sparkles, BookOpen, X } from 'lucide-react';
+import { Share2, Plus, Search, Moon, Sun, ArrowLeft, Database, Sparkles, BookOpen, X, Edit2, Unlink } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../services/api';
 import { DeleteWarningModal } from '../components/DeleteWarningModal';
+import { RenameWordModal } from '../components/RenameWordModal';
+import { DeleteRelationshipModal } from '../components/DeleteRelationshipModal';
 
 
 interface DashboardProps {
@@ -43,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [visibleCount, setVisibleCount] = useState(50);
+  const [directSynonyms, setDirectSynonyms] = useState<string[]>([]);
 
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -51,6 +54,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [deleteMode, setDeleteMode] = useState<'single' | 'cascade'>('single');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // Rename Modal State
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [wordToRename, setWordToRename] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [renameError, setRenameError] = useState('');
+
+  // Delete Synonym Relationship State
+  const [isDeleteLinkModalOpen, setIsDeleteLinkModalOpen] = useState(false);
+  const [linkDeleteWord1, setLinkDeleteWord1] = useState('');
+  const [linkDeleteWord2, setLinkDeleteWord2] = useState('');
+  const [deleteLinkLoading, setDeleteLinkLoading] = useState(false);
+  const [deleteLinkError, setDeleteLinkError] = useState('');
 
   // Infinite Scroll scroll handler
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -107,11 +123,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  // Helper to fetch direct & transitive synonyms simultaneously
+  const fetchSearchResults = async (query: string) => {
+    const [results, direct] = await Promise.all([
+      api.getSynonyms(query),
+      api.getSynonyms(query, true)
+    ]);
+    setSearchResults(results);
+    setDirectSynonyms(direct);
+    return results;
+  };
+
   // Search handler
   const handleSearch = async (e: React.FormEvent | null) => {
     if (e) e.preventDefault();
     setSearchError('');
     setSearchResults([]);
+    setDirectSynonyms([]);
     setVisibleCount(50); // Reset visible count on new search
 
     if (!searchQuery.trim()) {
@@ -120,8 +148,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     setSearchLoading(true);
     try {
-      const results = await api.getSynonyms(searchQuery);
-      setSearchResults(results);
+      const results = await fetchSearchResults(searchQuery);
       if (results.length === 0) {
         setSearchError(t('dashboard.errorNoSynonyms', { query: searchQuery }));
       }
@@ -162,14 +189,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         // If we deleted the searched word itself, clear search
         setSearchQuery('');
         setSearchResults([]);
+        setDirectSynonyms([]);
       } else {
         // If we deleted a synonym, refresh search to show updated list
         if (searchQuery) {
           try {
-            const results = await api.getSynonyms(searchQuery);
-            setSearchResults(results);
+            await fetchSearchResults(searchQuery);
           } catch {
             setSearchResults([]);
+            setDirectSynonyms([]);
           }
         }
       }
@@ -190,6 +218,106 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setDeleteError(errorMsg);
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  // Open Rename Modal Handler
+  const handleOpenRenameModal = (word: string) => {
+    setWordToRename(word);
+    setRenameError('');
+    setIsRenameModalOpen(true);
+  };
+
+  // Confirm Rename Handler
+  const handleConfirmRename = async (newWord: string) => {
+    if (!wordToRename || !newWord) return;
+    setRenameLoading(true);
+    setRenameError('');
+    try {
+      await api.renameWord(wordToRename, newWord);
+
+      // Updates after successful rename
+      if (wordToRename.toLowerCase() === searchQuery.toLowerCase()) {
+        // If we renamed the search query itself, update search query to new word & refresh results
+        setSearchQuery(newWord);
+        try {
+          await fetchSearchResults(newWord);
+        } catch {
+          setSearchResults([]);
+          setDirectSynonyms([]);
+        }
+      } else {
+        // If we renamed a synonym, refresh current search query synonyms
+        if (searchQuery) {
+          try {
+            await fetchSearchResults(searchQuery);
+          } catch {
+            setSearchResults([]);
+            setDirectSynonyms([]);
+          }
+        }
+      }
+
+      // Refresh graph stats / node count
+      try {
+        const graph = await api.getGraph();
+        setSeedCount(graph.nodes.length);
+      } catch (err) {
+        console.error('Error refreshing graph count:', err);
+      }
+
+      setIsRenameModalOpen(false);
+      setWordToRename('');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorGeneral');
+      setRenameError(errorMsg);
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
+  // Open Delete Synonym Connection Modal
+  const handleOpenDeleteLinkModal = (w1: string, w2: string) => {
+    setLinkDeleteWord1(w1);
+    setLinkDeleteWord2(w2);
+    setDeleteLinkError('');
+    setIsDeleteLinkModalOpen(true);
+  };
+
+  // Confirm Delete Synonym Connection
+  const handleConfirmDeleteLink = async () => {
+    if (!linkDeleteWord1 || !linkDeleteWord2) return;
+    setDeleteLinkLoading(true);
+    setDeleteLinkError('');
+    try {
+      await api.deleteRelationship(linkDeleteWord1, linkDeleteWord2);
+      
+      // Refresh current search
+      if (searchQuery) {
+        try {
+          await fetchSearchResults(searchQuery);
+        } catch {
+          setSearchResults([]);
+          setDirectSynonyms([]);
+        }
+      }
+
+      // Refresh graph stats / node count
+      try {
+        const graph = await api.getGraph();
+        setSeedCount(graph.nodes.length);
+      } catch (err) {
+        console.error('Error refreshing graph count:', err);
+      }
+
+      setIsDeleteLinkModalOpen(false);
+      setLinkDeleteWord1('');
+      setLinkDeleteWord2('');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : t('dashboard.errorDeleteLink');
+      setDeleteLinkError(errorMsg);
+    } finally {
+      setDeleteLinkLoading(false);
     }
   };
 
@@ -326,45 +454,108 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {searchError && <div className="message-box error-box search-msg">{searchError}</div>}
 
-            {searchResults.length > 0 && (
-              <div className="search-results animate-fade-in">
-                <div className="results-header">
-                  <h3 className="results-title-with-delete">
-                    {t('dashboard.synonymsFor', { query: '' }).replace(/""/g, '').replace(/:$/, '').trim()}
-                    <strong style={{ marginLeft: '4px' }}>&quot;{searchQuery}&quot;</strong>
-                    <button
-                      type="button"
-                      className="btn-delete-word"
-                      title={t('dashboard.deleteBtnTooltip', { word: searchQuery })}
-                      onClick={() => handleOpenDeleteModal(searchQuery)}
-                    >
-                      <X size={14} />
-                    </button>
-                    :
-                  </h3>
-                  <span className="results-counter">
-                    {t('dashboard.loadedCounter', { visible: Math.min(visibleCount, searchResults.length), total: searchResults.length })}
-                  </span>
-                </div>
-                <div className="results-list-container" onScroll={handleScroll}>
-                  <div className="results-list">
-                    {searchResults.slice(0, visibleCount).map((word, idx) => (
-                      <span key={idx} className="result-badge deleteable-badge animate-fade-in" style={{ animationDelay: `${(idx % 50) * 15}ms` }}>
-                        {word}
-                        <button
-                          type="button"
-                          className="btn-delete-badge"
-                          title={t('dashboard.deleteBtnTooltip', { word })}
-                          onClick={() => handleOpenDeleteModal(word)}
-                        >
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
+            {searchResults.length > 0 && (() => {
+              const directList = searchResults.filter(word => directSynonyms.some(ds => ds.toLowerCase() === word.toLowerCase()));
+              const indirectList = searchResults.filter(word => !directSynonyms.some(ds => ds.toLowerCase() === word.toLowerCase()));
+
+              return (
+                <div className="search-results animate-fade-in">
+                  <div className="results-header">
+                    <h3 className="results-title-with-delete">
+                      {t('dashboard.synonymsFor', { query: '' }).replace(/""/g, '').replace(/:$/, '').trim()}
+                      <strong style={{ marginLeft: '4px' }}>&quot;{searchQuery}&quot;</strong>
+                      <button
+                        type="button"
+                        className="btn-rename-word"
+                        title={t('dashboard.renameBtnTooltip', { word: searchQuery })}
+                        onClick={() => handleOpenRenameModal(searchQuery)}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-delete-word"
+                        title={t('dashboard.deleteBtnTooltip', { word: searchQuery })}
+                        onClick={() => handleOpenDeleteModal(searchQuery)}
+                      >
+                        <X size={14} />
+                      </button>
+                      :
+                    </h3>
+                    <span className="results-counter">
+                      {t('dashboard.loadedCounter', { visible: Math.min(visibleCount, searchResults.length), total: searchResults.length })}
+                    </span>
+                  </div>
+                  <div className="results-list-container" onScroll={handleScroll}>
+                    {directList.length > 0 && (
+                      <div className="results-section">
+                        <h4 className="results-section-title">{t('dashboard.directSynonyms')}</h4>
+                        <div className="results-list">
+                          {directList.map((word, idx) => (
+                            <span key={idx} className="result-badge deleteable-badge animate-fade-in">
+                              {word}
+                              <button
+                                type="button"
+                                className="btn-rename-badge"
+                                title={t('dashboard.renameBtnTooltip', { word })}
+                                onClick={() => handleOpenRenameModal(word)}
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete-link-badge"
+                                title={t('dashboard.deleteLinkBtnTooltip', { word1: searchQuery, word2: word })}
+                                onClick={() => handleOpenDeleteLinkModal(searchQuery, word)}
+                              >
+                                <Unlink size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete-badge"
+                                title={t('dashboard.deleteBtnTooltip', { word })}
+                                onClick={() => handleOpenDeleteModal(word)}
+                              >
+                                <X size={12} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {indirectList.length > 0 && (
+                      <div className="results-section" style={{ marginTop: '16px' }}>
+                        <h4 className="results-section-title">{t('dashboard.indirectSynonyms')}</h4>
+                        <div className="results-list">
+                          {indirectList.slice(0, visibleCount).map((word, idx) => (
+                            <span key={idx} className="result-badge deleteable-badge animate-fade-in" style={{ animationDelay: `${(idx % 50) * 15}ms` }}>
+                              {word}
+                              <button
+                                type="button"
+                                className="btn-rename-badge"
+                                title={t('dashboard.renameBtnTooltip', { word })}
+                                onClick={() => handleOpenRenameModal(word)}
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete-badge"
+                                title={t('dashboard.deleteBtnTooltip', { word })}
+                                onClick={() => handleOpenDeleteModal(word)}
+                              >
+                                <X size={12} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </section>
 
@@ -440,6 +631,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
           setWordToDelete('');
         }}
         onConfirm={handleConfirmDelete}
+      />
+
+      {isRenameModalOpen && (
+        <RenameWordModal
+          isOpen={isRenameModalOpen}
+          word={wordToRename}
+          loading={renameLoading}
+          error={renameError}
+          onCancel={() => {
+            setIsRenameModalOpen(false);
+            setWordToRename('');
+          }}
+          onConfirm={handleConfirmRename}
+        />
+      )}
+
+      <DeleteRelationshipModal
+        isOpen={isDeleteLinkModalOpen}
+        word1={linkDeleteWord1}
+        word2={linkDeleteWord2}
+        loading={deleteLinkLoading}
+        error={deleteLinkError}
+        onCancel={() => {
+          setIsDeleteLinkModalOpen(false);
+          setLinkDeleteWord1('');
+          setLinkDeleteWord2('');
+        }}
+        onConfirm={handleConfirmDeleteLink}
       />
 
 
@@ -889,6 +1108,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
           background-color: rgba(239, 68, 68, 0.1);
         }
 
+        .btn-rename-word, .btn-rename-badge {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2px;
+          border-radius: 4px;
+          transition: all var(--transition-fast);
+        }
+
+        .btn-rename-word:hover, .btn-rename-badge:hover {
+          color: var(--accent);
+          background-color: var(--accent-soft);
+        }
+
         .deleteable-badge {
           display: inline-flex;
           align-items: center;
@@ -910,6 +1147,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
 
         .btn-delete-badge:hover {
+          color: #ef4444;
+          background-color: rgba(239, 68, 68, 0.15);
+        }
+
+        .results-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .results-section-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        }
+
+        .btn-delete-link-badge {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1px;
+          border-radius: 2px;
+          transition: all var(--transition-fast);
+        }
+
+        .btn-delete-link-badge:hover {
           color: #ef4444;
           background-color: rgba(239, 68, 68, 0.15);
         }
